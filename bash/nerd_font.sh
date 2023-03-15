@@ -79,7 +79,9 @@ if [[ -z $font_name ]]; then
 fi
 
 # Check if font already exists
-if ls "${font_dir}/${font_name}"*Complete.{otf,ttf} >/dev/null 2>&1; then
+single_font_dir=$(sanitize_font_name "$font_name")
+extract_dir="${font_dir}/${single_font_dir}"
+if ls "${extract_dir}" | grep ".*Complete.\(otf\|ttf\)$" >/dev/null 2>&1; then
   echo "Font already exists. Aborting installation."
   exit 1
 fi
@@ -107,8 +109,6 @@ fonts_tobe_installed=$(zipinfo -1 "${tmp_dir}/${font_name}.zip" | grep ".*Comple
 echo -e "The following font files will be installed to ${font_dir}.\n"
 echo "$fonts_tobe_installed"
 
-single_font_dir=$(sanitize_font_name "$font_name")
-extract_dir="${font_dir}/${single_font_dir}"
 # check if the font folder already exists
 if [ ! -d "$extract_dir" ]; then
   mkdir -p "$extract_dir"
