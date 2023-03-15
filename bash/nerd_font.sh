@@ -9,7 +9,6 @@ api_url="https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest"
 #font_dir="$HOME/.local/share/fonts/NerdFonts"
 font_dir="$NERD_FONT"
 
-
 # Download API response and parse JSON to get available font names
 echo "Retrieving font information..."
 api_response=$(curl -s -H "Accept: application/vnd.github.v3+json" $api_url)
@@ -70,7 +69,7 @@ wget -q "${asset_url}" -P "${tmp_dir}"
 # get font file names that match the given pattern
 fonts_tobe_installed=$(zipinfo -1 "${tmp_dir}/${font_name}.zip" | grep ".*Complete\.\(ttf\|otf\)$" | grep -iv 'Windows')
 
-echo "The following font files will be installed to ${font_dir}."
+echo -e "The following font files will be installed to ${font_dir}.\n"
 echo "$fonts_tobe_installed"
 
 # check if the font folder already exists
@@ -83,9 +82,9 @@ echo "$fonts_tobe_installed"| xargs -d '\n' unzip -qo "${tmp_dir}/${font_name}.z
 
 # check if the font files were extracted successfully
 if [ $? -eq 0 ]; then
-  echo "The '${font_name}' Nerd-Font has been installed to '${font_dir}'."
+  echo -e "\nThe '${font_name}' Nerd-Font has been installed to '${font_dir}'."
 else
-  echo "Error: failed to install the nerd-font '${font_name}' font."
+  echo -e "\nError: failed to install the nerd-font '${font_name}' font."
 fi
 
 # clean the tmp folder
