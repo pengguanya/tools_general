@@ -4,6 +4,18 @@
 # Install Nerd-Font
 # +++++++++++++++++++++
 
+# Clean a name
+clean_name() {
+  local name=$1
+  # remove leading/trailing spaces
+  name=$(echo "$name" | sed -e 's/^ *//' -e 's/ *$//')
+  # replace multiple spaces with a single underscore
+  name=$(echo "$name" | sed -e 's/  */_/g')
+  # remove all non-alphanumeric characters except for periods, underscores, and hyphens
+  name=$(echo "$name" | sed -e 's/[^[:alnum:]._-]//g' -e 's/_\./\./g' -e 's/_\+/_/g')
+  echo "$name"
+}
+
 # Set up variables for API URL and font directory
 api_url="https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest"
 #font_dir="$HOME/.local/share/fonts/NerdFonts"
@@ -15,7 +27,7 @@ api_response=$(curl -s -H "Accept: application/vnd.github.v3+json" $api_url)
 font_names=$(echo $api_response | jq -r '.assets[].name' | sed -e "s/^[^a-zA-Z0-9]*//" -e "s/\(.zip\)\?\([^a-zA-Z0-9 ]*\)$//g" | sort -u)
 
 # Check if any fonts were found
-if [ -z "$font_names" ]; then
+if [[ -z $font_names ]]; then
   echo "No fonts found. Aborting installation."
   exit 1
 fi
@@ -72,17 +84,19 @@ fonts_tobe_installed=$(zipinfo -1 "${tmp_dir}/${font_name}.zip" | grep ".*Comple
 echo -e "The following font files will be installed to ${font_dir}.\n"
 echo "$fonts_tobe_installed"
 
+single_font_dir=$(clean_name "$font_name")
+extract_dir="${font_dir}/${single_font_dir}"
 # check if the font folder already exists
-if [ ! -d "${font_dir}" ]; then
-  mkdir -p "${font_dir}"
+if [ ! -d "$extract_dir" ]; then
+  mkdir -p "$extract_dir"
 fi
 
 # extract only the required files to the local directory using bsdtar
-echo "$fonts_tobe_installed"| xargs -d '\n' unzip -qo "${tmp_dir}/${font_name}.zip" -d "${font_dir}"
+echo "$fonts_tobe_installed"| xargs -d '\n' unzip -qo "${tmp_dir}/${font_name}.zip" -d "$extract_dir"
 
 # check if the font files were extracted successfully
 if [ $? -eq 0 ]; then
-  echo -e "\nThe '${font_name}' Nerd-Font has been installed to '${font_dir}'."
+  echo -e "\nThe '${font_name}' Nerd-Font has been installed to '${extract_dir}'."
 else
   echo -e "\nError: failed to install the nerd-font '${font_name}' font."
 fi
