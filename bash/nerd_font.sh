@@ -72,12 +72,61 @@ function uninstall_font {
   fi
 }
 
+# Define the function to check if a font is installed
+check_font_installed() {
+  local font_name="$1"
+  local path_to_fonts="$2"
+  local sanitized_font_name="$(sanitize_font_name "$font_name")"
+  local thisfontdir="${path_to_fonts}/${sanitized_font_name}"
+
+  if [ -z "$sanitized_font_name" ]; then
+    echo "Error: sanitized font name is empty for font '$font_name'" >&2
+    exit 1
+  fi
+
+  # Check if the sanitized font name matches any folder name under $path_to_fonts
+  if [ "$(find "$path_to_fonts" -iname "$sanitized_font_name" -type d | wc -l)" -gt 0 ] && \
+     [ "$(find "$thisfontdir" -type f \( -iname '*.ttf' -o -iname '*.otf' \) | wc -l)" -gt 0 ]; then
+    echo "[*] ${font_name}"
+  else
+    echo "$font_name"
+  fi
+}
+
+# Define the function to loop over each font name and check if it's installed
+check_fonts_installed() {
+  local font_names="$1"
+  local path_to_fonts="$2"
+  local font_list=()
+
+  if [ -z "$font_names" ]; then
+    echo "Error: font names list is empty" >&2
+    return 1
+  fi
+  
+  for font_name in $font_names; do
+    if [ -z "$font_name" ]; then
+      echo "Error: font name is empty" >&2
+      return 1
+    fi
+    
+    updated_font="$(check_font_installed "$font_name" "$path_to_fonts")"
+    if [ "$?" -ne 0 ]; then
+      echo "Error while checking font '$font_name'" >&2
+      return 1
+    fi
+    font_list+=("$updated_font")
+  done
+
+  # Print the list of font names with [*] indicating installed fonts
+  printf '%s\n' "${font_list[@]}"
+}
+
 # ---------------
 
 # Set up variables for API URL and font directory
 api_url="https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest"
-#font_dir="$HOME/.local/share/fonts/NerdFonts"
-font_dir="$NERD_FONT"
+font_dir="${NERD_FONT:-$HOME/.local/share/fonts/NerdFonts}"
 
 # Download API response and parse JSON to get available font names
 echo "Retrieving font information..."
@@ -99,9 +148,11 @@ if [[ -z $font_names ]]; then
   exit 1
 fi
 
+font_names_toprint=$(check_fonts_installed "$font_names" "$font_dir")
 # Display font list with indices
 echo "Available fonts:"
-echo "$font_names" | nl -w 3 -s ') ' | pr -at2
+echo "$font_names_toprint" | nl -w 3 -s ') ' | pr -at2
+echo -e "\n [*]: Installed fonts under '${font_dir}'"
 
 # Ask user to choose a font
 while true; do
@@ -129,7 +180,7 @@ while true; do
     break
   fi
 
-  echo "Invalid input. Please enter a valid index or font name, or enter Q/q to quit."
+  echo "Invalid input. Please enter a valid index or font name, or enter Q/q to quit, U/u to uninstall."
 done
 
 # Abort if no font specified
@@ -150,7 +201,7 @@ asset_url=$(echo "$api_response" | jq -r --arg FONT "$font_name" '.assets[] | se
 
 # make sure the asset URL is not empty
 if [ -z "$asset_url" ]; then
-  echo "Error: could not find asset url for '${font_name}' in latest release."
+  echo "Error: could not find asset url for '${font_name}' in latest release." >&2
   exit 1
 fi
 
@@ -181,7 +232,7 @@ fi
 
 # check if the font folder already exists
 if [ -z "$extract_dir" ]; then
-  echo "Error: failed to composed installation path with base director: ${font_dir} and font name: ${font_name}."
+  echo "Error: failed to composed installation path with base director: ${font_dir} and font name: ${font_name}." >&2
   exit 1
 elif [ -d "$extract_dir" ]; then
   echo "The local directory for font ${font_name} already existed at ${extract_dir}. Uninstall the font before installation."
@@ -201,8 +252,8 @@ echo "$fonts_tobe_installed"| xargs -d '\n' unzip -qo "${tmp_dir}/${font_name}.z
 if [ $? -eq 0 ]; then
   echo -e "\nThe '${font_name}' Nerd-Font has been installed to '${extract_dir}'."
 else
-  echo -e "\nError: failed to install the nerd-font '${font_name}' font."
   clean_up
+  echo -e "\nError: failed to install the nerd-font '${font_name}' font." >&2
   exit 2
 fi
 
