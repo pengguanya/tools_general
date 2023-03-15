@@ -32,6 +32,14 @@ sanitize_font_name() {
 # Download API response and parse JSON to get available font names
 echo "Retrieving font information..."
 api_response=$(curl -s -H "Accept: application/vnd.github.v3+json" $api_url)
+
+# Check the exit status of the curl command
+if [ $? -ne 0 ]; then
+  # If the curl command failed, print an error message and exit with a non-zero exit code
+  echo "Error: Failed to retrieve font information from ${api_url}" >&2
+  exit 1
+fi
+
 font_names=$(echo $api_response | jq -r '.assets[].name' | sed -e "s/^[^a-zA-Z0-9]*//" -e "s/\(.zip\)\?\([^a-zA-Z0-9 ]*\)$//g" | sort -u)
 
 # Check if any fonts were found
@@ -43,7 +51,6 @@ fi
 # Display font list with indices
 echo "Available fonts:"
 echo "$font_names" | nl -w 3 -s ') ' | pr -at2
-
 
 # Ask user to choose a font
 # read -p "Enter the index or full name of the font you want to install (Q/q to quite): " font_input
@@ -81,13 +88,13 @@ fi
 # Check if font already exists
 single_font_dir=$(sanitize_font_name "$font_name")
 extract_dir="${font_dir}/${single_font_dir}"
-if ls "${extract_dir}" | grep ".*Complete.\(otf\|ttf\)$" >/dev/null 2>&1; then
+if ls "${extract_dir}" 2>/dev/null | grep ".*Complete.\(otf\|ttf\)$" > /dev/null 2>&1; then
   echo "Font already exists. Aborting installation."
   exit 1
 fi
 
 # get the asset url from latest release information for the NerdFont from GitHub
-asset_url=$(echo "$api_response" | jq -r '.assets[].browser_download_url | select(test("'$font_name'.*\\.zip$"))')
+asset_url=$(echo "$api_response" | jq -r --arg FONT "$font_name" '.assets[] | select(.name == ($FONT + ".zip")) | .browser_download_url')
 
 # make sure the asset URL is not empty
 if [ -z "$asset_url" ]; then
@@ -100,8 +107,20 @@ tmp_dir_base="/tmp/font_tmp"
 tmp_dir="${tmp_dir_base}/$(date +%y%m%d%h%m%s)-$(openssl rand -hex 6)"
 mkdir -p $tmp_dir 
 
+clean_up() {
+  rm -rf "${tmp_dir}"
+  rm -rf "${tmp_dir_base}"
+}
+
 # download the zip file to the temporary directory using wget
 wget -q "${asset_url}" -P "${tmp_dir}"
+
+# check the exit status of the wget command
+if [ $? -ne 0 ]; then
+  echo "Error: Failed to download font ${font_name} from ${asset_url}" >&2
+  clean_up
+  exit 1
+fi
 
 # get font file names that match the given pattern
 fonts_tobe_installed=$(zipinfo -1 "${tmp_dir}/${font_name}.zip" | grep ".*Complete\.\(ttf\|otf\)$" | grep -iv 'Windows')
@@ -122,8 +141,9 @@ if [ $? -eq 0 ]; then
   echo -e "\nThe '${font_name}' Nerd-Font has been installed to '${extract_dir}'."
 else
   echo -e "\nError: failed to install the nerd-font '${font_name}' font."
+  clean_up
+  exit 1
 fi
 
 # clean the tmp folder
-rm -rf "${tmp_dir}"
-rm -rf "${tmp_dir_base}"
+clean_up
