@@ -6,4 +6,4 @@ This bash script installs a Nerd Font of the user's choice by retrieving the lat
 ```
 ./nerd_font.sh
 ```
-Then select the font you want to install with index. The font files `.ttf` or `.otf` will be downloaded to `$HOME/$NERD_FONT/<FontName>`. User can define own $NERD_FONT environmental variable to specifiy the local path or modify it directly in the script.
+Then select the font you want to install with index. The font files `.ttf` or `.otf` will be downloaded to `$HOME/$NERD_FONT/<FontName>`. User can define own `$NERD_FONT` environmental variable to specifiy the local path or modify it directly in the script.
