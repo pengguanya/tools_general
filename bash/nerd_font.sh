@@ -4,8 +4,21 @@
 # Install Nerd-Font
 # +++++++++++++++++++++
 
+set -euo pipefail
+
+# Check dependencies
+command -v curl >/dev/null 2>&1 || { echo >&2 "curl is required but not installed. Aborting."; exit 1; }
+command -v jq >/dev/null 2>&1 || { echo >&2 "jq is required but not installed. Aborting."; exit 1; }
+command -v zipinfo >/dev/null 2>&1 || { echo >&2 "zipinfo is required but not installed. Aborting."; exit 1; }
+command -v unzip >/dev/null 2>&1 || { echo >&2 "unzip is required but not installed. Aborting."; exit 1; }
+
+# Set up variables for API URL and font directory
+api_url="https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest"
+#font_dir="$HOME/.local/share/fonts/NerdFonts"
+font_dir="$NERD_FONT"
+
 # Clean a name
-clean_name() {
+sanitize_font_name() {
   local name=$1
   # remove leading/trailing spaces
   name=$(echo "$name" | sed -e 's/^ *//' -e 's/ *$//')
@@ -15,11 +28,6 @@ clean_name() {
   name=$(echo "$name" | sed -e 's/[^[:alnum:]._-]//g' -e 's/_\./\./g' -e 's/_\+/_/g')
   echo "$name"
 }
-
-# Set up variables for API URL and font directory
-api_url="https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest"
-#font_dir="$HOME/.local/share/fonts/NerdFonts"
-font_dir="$NERD_FONT"
 
 # Download API response and parse JSON to get available font names
 echo "Retrieving font information..."
@@ -38,16 +46,31 @@ echo "$font_names" | nl -w 3 -s ') ' | pr -at2
 
 
 # Ask user to choose a font
-read -p "Enter the index or full name of the font you want to install: " font_input
+# read -p "Enter the index or full name of the font you want to install (Q/q to quite): " font_input
 
-# Check if user input is an index or full font name
-if [[ "$font_input" =~ ^[0-9]+$ ]]; then
-  # User entered an index, so extract corresponding font name
-  font_name=$(echo "$font_names" | sed -n "${font_input}p")
-else
-  # User entered a font name, so use it directly
-  font_name="$font_input"
-fi
+# Ask user to choose a font
+while true; do
+  read -p $'\n'"Enter the index or full name of the font you want to install (Q/q to quit): " font_input
+  # Check if user wants to quit
+  if [[ "$font_input" =~ ^[Qq]$ ]]; then
+    echo "Quitting installation."
+    exit 0
+  elif [[ "$font_input" =~ ^[0-9]+$ ]]; then
+    # User entered an index, so extract corresponding font name
+    font_name=$(echo "$font_names" | sed -n "${font_input}p")
+    if [[ -n "$font_name" ]]; then
+      break
+    else
+      echo "Invalid index. Please enter a valid index or font name."
+    fi
+  elif [[ "$font_names" =~ (^|[[:space:]])"$font_input"($|[[:space:]]) ]]; then
+    # User entered a font name, so use it directly
+    font_name="$font_input"
+    break
+  else
+    echo "Invalid font name. Please enter a valid index or font name."
+  fi
+done
 
 # Abort if no font specified
 if [[ -z $font_name ]]; then
@@ -84,7 +107,7 @@ fonts_tobe_installed=$(zipinfo -1 "${tmp_dir}/${font_name}.zip" | grep ".*Comple
 echo -e "The following font files will be installed to ${font_dir}.\n"
 echo "$fonts_tobe_installed"
 
-single_font_dir=$(clean_name "$font_name")
+single_font_dir=$(sanitize_font_name "$font_name")
 extract_dir="${font_dir}/${single_font_dir}"
 # check if the font folder already exists
 if [ ! -d "$extract_dir" ]; then
