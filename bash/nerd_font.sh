@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# =====================
-# Install Nerd-Font
-# +++++++++++++++++++++
+# =============================
+# Install and manage Nerd-Font
+# =============================
 
 set -euo pipefail
 
@@ -246,7 +246,7 @@ echo -e "The following font files will be extracted to '${extract_dir}'\n"
 echo "$fonts_tobe_installed"
 
 # extract only the required files to the local directory using bsdtar
-echo "$fonts_tobe_installed"| xargs -d '\n' unzip -qo "${tmp_dir}/${font_name}.zip" -d "$extract_dir"
+echo "$fonts_tobe_installed" | xargs -d '\n' unzip -qo "${tmp_dir}/${font_name}.zip" -d "$extract_dir"
 
 # check if the font files were extracted successfully
 if [ $? -eq 0 ]; then
