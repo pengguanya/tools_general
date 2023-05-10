@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Define the thresholds for fan speed, CPU temperature, and CPU usage
-FAN_THRESHOLD=2000   # Adjust the value as per your fan specifications
-TEMP_THRESHOLD=80    # Adjust the value as per your CPU temperature specifications
-CPU_THRESHOLD=90.0   # Adjust the value as per your CPU usage specifications
+FAN_THRESHOLD=1200   # Adjust the value as per your fan specifications
+TEMP_THRESHOLD=60    # Adjust the value as per your CPU temperature specifications
+CPU_THRESHOLD=80.0   # Adjust the value as per your CPU usage specifications
 
 # Function to send notification
 send_notification() {
