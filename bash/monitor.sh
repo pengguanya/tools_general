@@ -4,11 +4,26 @@
 FAN_THRESHOLD=2000  # Adjust the value as per your fan specifications
 TEMP_THRESHOLD=80   # Adjust the value as per your CPU temperature specifications
 CPU_THRESHOLD=90    # Adjust the value as per your CPU usage specifications
+TOP_PROCESSES=3     # Number of top processes to include in the notification
 
 # Function to send notification
 send_notification() {
   local message=$1
-  echo "$message"  # Replace this line with the code to send the notification
+
+  # Detect the desktop environment
+  if [[ $XDG_SESSION_DESKTOP == *"ubuntu"* ]]; then
+    # GNOME environment
+    notify-send "System Monitor" "$message"
+  elif [[ $XDG_SESSION_DESKTOP == *"awesome"* ]]; then
+    # AwesomeWM environment
+    awesome-client "naughty.notify({ title = 'System Monitor', text = '$message' })"
+  fi
+}
+
+# Function to get top CPU-consuming processes
+get_top_processes() {
+  local processes=$(ps -eo pid,ppid,cmd,%cpu --sort=-%cpu --no-headers | head -n $TOP_PROCESSES)
+  echo "$processes"
 }
 
 # Main script logic
@@ -34,7 +49,9 @@ while true; do
 
   # Check if CPU usage exceeds threshold
   if (( cpu_usage > CPU_THRESHOLD )); then
-    send_notification "CPU usage is high! Current usage: $cpu_usage%"
+    top_processes=$(get_top_processes)
+    message="CPU usage is high! Current usage: $cpu_usage%\n\nTop $TOP_PROCESSES processes:\n$top_processes"
+    send_notification "$message"
   fi
 
   sleep 1  # Adjust the sleep duration as per your requirement
