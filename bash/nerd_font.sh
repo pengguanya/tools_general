@@ -214,7 +214,7 @@ fi
 
 extract_dir="$(local_nerd_font_dir "$font_name" "$font_dir")"
 # Check if font already exists
-if ls "${extract_dir}" 2>/dev/null | grep ".*Complete.\(otf\|ttf\)$" > /dev/null 2>&1; then
+if ls "${extract_dir}" 2>/dev/null | grep ".*.\(otf\|ttf\)$" > /dev/null 2>&1; then
   echo "Font already exists. Aborting installation."
   exit 1
 fi
@@ -244,8 +244,53 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# get font file names that match the given pattern
-fonts_tobe_installed=$(zipinfo -1 "${tmp_dir}/${font_name}.zip" | grep ".*Complete\.\(ttf\|otf\)$" | grep -iv 'Windows')
+# get all font styles
+all_styles=$(zipinfo -1 "${tmp_dir}/${font_name}.zip")
+
+# Print available font styles and files
+echo "Available font styles:"
+font_styles=$(echo "$all_styles" | grep -E '\.(ttf|otf)$' | grep -vi 'Windows')
+num_styles=$(echo "$font_styles" | wc -l)
+if [ "$num_styles" -eq 0 ]; then
+  echo "No font styles found. Aborting installation."
+  exit 1
+fi
+
+# Determine the column width based on the longest font file name
+column_width=$(echo "$font_styles" | awk '{ print length }' | sort -nr | head -n1)
+
+# Format and display the available styles with index numbers
+echo "$font_styles" | nl -w 3 -s ') ' | awk -v width="$column_width" -v OFS=' ' '{$1=sprintf("%-3s", $1); $2=sprintf("%-" width "s", $2); print}'
+
+echo
+
+# Prompt user to input a pattern or index
+while true; do
+  read -p "Enter the pattern to match font styles or an index to install a specific style [Enter: all styles] [Q/q to quit]: " style_input
+  
+  if [[ "$style_input" =~ ^[Qq]$ ]]; then
+    echo "Quitting the program."
+    exit 0
+  elif [ -z "$style_input" ]; then
+    fonts_tobe_installed="$font_styles"
+    break
+  elif [[ "$style_input" =~ ^[0-9]+$ ]]; then
+    style_index=$((style_input - 1))
+    if [ "$style_index" -ge 0 ] && [ "$style_index" -lt "$num_styles" ]; then
+      fonts_tobe_installed=$(echo "$font_styles" | sed -n "${style_input}p")
+      break
+    fi
+    echo "Invalid input. Please enter a valid index."
+  else
+    match_found=false
+    fonts_tobe_installed=$(echo "$font_styles" | grep -E "$style_input" || true)
+    if [ -n "$fonts_tobe_installed" ]; then
+      match_found=true
+      break
+    fi
+    echo "No font styles found matching the pattern '$style_input'. Please try again."
+  fi
+done
 
 # check if file names for target font files are successfully extracted
 if [[ $? -ne 0 || -z $fonts_tobe_installed ]]; then
@@ -265,7 +310,7 @@ else
   mkdir -p "$extract_dir"
 fi
 
-echo -e "The following font files will be extracted to '${extract_dir}'\n"
+echo -e "\nThe following font files will be extracted to '${extract_dir}'\n"
 echo "$fonts_tobe_installed"
 
 # extract only the required files to the local directory using bsdtar
