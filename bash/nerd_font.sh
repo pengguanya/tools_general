@@ -1,8 +1,31 @@
-#!/bin/bash
+################################################################################
+# Description:    Nerd Font Installer Script
+# Author:         Guanya Peng
+# Date:           20230511
+# Version:        1.0
+# Usage:          bash nerd_font.sh
+# 
+# This script is used to install Nerd Fonts on your system. It checks for the 
+# required dependencies (curl, jq, zipinfo, unzip), retrieves the latest font 
+# information from the GitHub API, allows you to choose a font to install, 
+# downloads the font archive, and extracts the font files to the specified 
+# directory. If the font is already installed or the font directory already 
+# exists, the script will abort the installation.
+# 
+# Usage:
+#   1. Ensure that you have the required dependencies installed (curl, jq, 
+#      zipinfo, unzip).
+#   2. Open a terminal and navigate to the directory containing this script.
+#   3. Run the script using the following command:
+#      bash nerd_font_installer.sh
+#
+# Note: This script assumes that you have permission to write to the font 
+# directory specified in the script (default: $HOME/.local/share/fonts/NerdFonts). 
+# If you do not have write access to that directory, you may need to modify the 
+# `font_dir` variable in the script.
+################################################################################
 
-# =============================
-# Install and manage Nerd-Font
-# =============================
+#!/bin/bash
 
 set -euo pipefail
 
