@@ -27,7 +27,7 @@ THRESHOLD_LOW=50
 THRESHOLD_HIGH=80
 
 # CPU frequency limit (in kHz) for all cores
-FREQ_LIMIT=2300000
+FREQ_LIMIT=2100000
 
 # Function to set CPU frequency for all cores
 set_cpu_frequencies() {

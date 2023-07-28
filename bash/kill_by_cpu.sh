@@ -1,3 +1,23 @@
+################################################################################
+# Description:   Bash script to monitor CPU usage of a command and kill the process if it exceeds the specified threshold.
+# Author:        Guanya Peng
+# Date:          20230413
+# Version:       1.0
+# Usage:         bash kill_by_cpu.sh
+#
+# This script continuously monitors the CPU usage of a specified command and
+# kills the process if it exceeds the specified threshold. It retrieves the
+# process IDs (PIDs) of the command, calculates the maximum CPU usage among
+# those processes, and compares it to the threshold.
+#
+# Variables:
+#   command    - The command to monitor
+#   threshold  - The CPU usage threshold (in percentage)
+#
+# Dependencies: bc, awk, top
+#
+################################################################################
+
 #!/bin/bash
 
 command='/opt/fireeye/bin/xagt'   # Replace this with your command

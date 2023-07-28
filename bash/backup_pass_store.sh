@@ -1,3 +1,40 @@
+################################################################################
+# Description: Bash script to backup and synchronize a password store with a GitHub repository.
+# Author: Guanya Peng
+# Date: 20230404
+# Version: 1.0
+# Usage: bash backup_pass_store.sh [OPTIONS]
+#
+# This script allows you to backup and synchronize a password store with a
+# GitHub repository. It provides options to sync, restore, or perform a normal
+# backup of the password store. By default, it performs a normal backup if no
+# option is specified.
+#
+# Options:
+#   -s             Sync the password store with the GitHub repository.
+#                  This option pulls changes from the repository, copies the
+#                  updated password store to the system, adds and commits
+#                  changes to the repository with a timestamp.
+#   -r [TIMESTAMP] Restore the password store from the GitHub repository.
+#                  This option restores the password store to a specific
+#                  timestamp. If no timestamp is provided, it restores to
+#                  the latest version. The restored password store is copied
+#                  to the system.
+#
+# Dependencies: Git
+#               Make sure the Git repository is set up correctly before
+#               using this script.
+#
+# Note: Before running this script, make sure to set the following variables:
+#       - GH_USERNAME: Your GitHub username
+#       - GH_REPO: Your GitHub repository name
+#       - BACKUP_DIR: The directory to store the local backup
+#       - GIT_URL_ROCHE: The Git URL for Roche (if applicable)
+#       - GIT_URL: The Git URL for GitHub (if applicable)
+#       - PASS_DIR: The path to your password store directory
+#
+################################################################################
+
 #!/bin/bash
 
 # Function to commit

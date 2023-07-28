@@ -1,3 +1,23 @@
+################################################################################
+# Description:   Bash script to monitor and kill CPU-consuming processes.
+# Author:        Guanya Peng
+# Date:          20230510
+# Version:       1.0
+# Usage:         bash kill_top_process.sh
+#
+# This script retrieves the top CPU-consuming processes and provides options
+# to kill processes by PID or kill the top N processes. It displays the process
+# information and prompts the user for the action to perform.
+#
+# Functions:
+#   - get_top_processes: Retrieves the top CPU-consuming processes
+#   - kill_process_by_pid: Kills a process by PID
+#   - kill_top_processes: Kills the top N processes
+#
+# Dependencies: awk
+#
+################################################################################
+
 #!/bin/bash
 
 # Function to get top CPU-consuming processes

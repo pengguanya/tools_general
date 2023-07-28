@@ -1,3 +1,26 @@
+################################################################################
+# Description:   Bash script to monitor CPU temperature and CPU usage,
+#                and send notifications if thresholds are exceeded.
+# Author:        Guanya Peng
+# Date:          20230510
+# Version:       1.0
+# Usage:         bash monitor.sh
+#
+# This script continuously monitors the CPU temperature and CPU usage.
+# If either of them exceeds the specified thresholds, it sends a desktop
+# notification to alert the user. The script retrieves the top CPU-consuming
+# processes and includes them in the notification message.
+#
+# Thresholds:
+#   - TEMP_THRESHOLD: The CPU temperature threshold (in °C)
+#   - CPU_THRESHOLD: The CPU usage threshold (in percentage)
+#   - TOP_PROCESSES: The number of top processes to display in the notification
+#
+# Dependencies: bc, awk, sensors, mpstat, notify-send (for GNOME environment),
+#               awesome-client (for AwesomeWM environment)
+#
+################################################################################
+
 #!/bin/bash
 
 # Define the thresholds for CPU temperature and CPU usage
