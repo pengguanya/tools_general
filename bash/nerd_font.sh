@@ -151,12 +151,17 @@ check_fonts_installed() {
 api_url="https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest"
 font_dir="${NERD_FONT:-$HOME/.local/share/fonts/NerdFonts}"
 
+# Create font folder if not exist
+if [[ ! -d "$font_dir" ]]; then
+    mkdir -p "$font_dir"
+fi
+
 # Download API response and parse JSON to get available font names
 echo "Retrieving font information..."
 api_response=$(curl -s -H "Accept: application/vnd.github.v3+json" $api_url)
 
 # Check the exit status of the curl command
-if [ $? -ne 0 ]; then
+if [[ $? -ne 0 ]]; then
   # If the curl command failed, print an error message and exit with a non-zero exit code
   echo "Error: Failed to retrieve font information from ${api_url}" >&2
   exit 1
