@@ -69,14 +69,18 @@ if [ $# -ne 1 ]; then
     usage
 fi
 
+valid_option=false
+
 while getopts "sh" opt; do
     case "$opt" in
         s)
             set_speaker
+            valid_option=true
             ;;
 
         h)
             set_headset
+            valid_option=true
             ;;
 
         *)
@@ -85,3 +89,7 @@ while getopts "sh" opt; do
     esac
 done
 
+# If no valid option was provided, show usage
+if [ "$valid_option" = false ]; then
+    usage
+fi
