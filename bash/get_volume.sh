@@ -14,6 +14,10 @@
 # Author: Guanya Peng
 # Date: Oct 13, 2023
 ################################################################################
+to_proper_case() {
+  local input="$1"
+  echo "$input" | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2));}1'
+}
 
 # Function to get the default sink name
 get_default_sink_name() {
@@ -25,7 +29,7 @@ get_sink_volume() {
     local sink_name="$1"
     volume_info=$(pacmd list-sinks | grep -A 20 "name: <$sink_name>")
     volume_level=$(echo "$volume_info" | awk -F ' ' '/volume: front-left:/ {print $5}')
-    echo "VOL: $volume_level"
+    echo "$volume_level"
 }
 
 # Function to check if the sink is muted
@@ -33,7 +37,7 @@ is_sink_muted() {
     local sink_name="$1"
     volume_info=$(pacmd list-sinks | grep -A 20 "name: <$sink_name>")
     mute_status=$(echo "$volume_info" | awk -F ' ' '/muted:/ {print $2}')
-    echo "MUTE: $mute_status"
+    echo $(to_proper_case "$mute_status")
 }
 
 # Get the default sink name
