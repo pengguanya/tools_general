@@ -11,7 +11,7 @@ declare -a options=(
 "bash_profile - $HOME/.bash_profile"
 "bash_prompt - $HOME/.bash_prompt/bash_prompt.bash"
 "nvim - $XDG_CONFIG_HOME/nvim/init.lua"
-"profilHOME/.confige - $HOME/.profile"
+"profil - $HOME/.profile"
 "ssh - $HOME/.ssh/config"
 "tmux-general - $HOME/.tmux.conf"
 "tmux-master - $HOME/.tmux/config/master.tmux.conf"
