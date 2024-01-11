@@ -25,7 +25,7 @@
 # `font_dir` variable in the script.
 ################################################################################
 
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
@@ -145,6 +145,30 @@ check_fonts_installed() {
   printf '%s\n' "${font_list[@]}"
 }
 
+# Remove leadning and trailing spaces from text
+clean_text() {
+    while IFS= read -r line; do
+        echo "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+    done
+}
+
+# Filter out specified file type from a list of file names and with a given file type (extension)
+filter_files_by_extension() {
+    local extension="$1"
+    while IFS= read -r line; do
+        if [[ "$line" =~ \.$extension$ ]]; then
+            echo "$line"
+        fi
+    done
+}
+
+# Clean font names and remove extension from font filenames
+clean_fontnames() {
+    local fonts="$1"
+    local ext="$2"
+    echo "$fonts" | sed -e "s/^[^a-zA-Z0-9]*//" -e "s/\(."${ext}"\)\?\([^a-zA-Z0-9 ]*\)$//g" | sort -u
+}
+
 # ---------------
 
 # Set up variables for API URL and font directory
@@ -168,7 +192,11 @@ if [[ $? -ne 0 ]]; then
 fi
 
 # Extract font name from the API
-font_names=$(echo $api_response | jq -r '.assets[].name' | sed -e "s/^[^a-zA-Z0-9]*//" -e "s/\(.zip\)\?\([^a-zA-Z0-9 ]*\)$//g" | sort -u)
+# Cleaning, and filtering for ".zip" files 
+font_zips=$(echo "$api_response" | jq -r '.assets[].name' | clean_text | filter_files_by_extension "zip")
+
+# Clean font names and remove zip extension
+font_names=$(clean_fontnames "$font_zips" "zip")
 
 # Check if any fonts were found
 if [[ -z $font_names ]]; then
@@ -230,6 +258,7 @@ asset_url=$(echo "$api_response" | jq -r --arg FONT "$font_name" '.assets[] | se
 # make sure the asset URL is not empty
 if [ -z "$asset_url" ]; then
   echo "Error: could not find asset url for '${font_name}' in latest release." >&2
+  echo "$asset_url"
   exit 1
 fi
 
