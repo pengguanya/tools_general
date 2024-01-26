@@ -15,45 +15,47 @@
 ################################################################################
 
 # Define variables for sound configuration
-speaker_sink="alsa_output.pci-0000_00_1f.3-platform-skl_hda_dsp_generic.HiFi__hw_sofhdadsp__sink"
-headset_sink="alsa_output.usb-0b0e_Jabra_Link_380_50C275F5FAA5-00.iec958-stereo"
-speaker_source="alsa_input.pci-0000_00_1f.3-platform-skl_hda_dsp_generic.HiFi__hw_sofhdadsp_6__source"
-headset_source="alsa_input.usb-0b0e_Jabra_Link_380_50C275F5FAA5-00.mono-fallback"
-speaker_port="[Out] Speaker"
-headset_port="iec958-stereo-output"
-microphone_port="[In] Mic1"
-headset_microphone_port="analog-input-mic"
+speaker_sink="skl_hda_dsp_generic.HiFi__hw_sofhdadsp__sink"
+headset_sink="Jabra_Link"
+speaker_source="skl_hda_dsp_generic.HiFi__hw_sofhdadsp_6__source"
+headset_source="Jabra_Link"
 
 # Function to set sound output or input
 set_sound() {
     local target="$1"
     local name="$2"
-    local port="$3"
-    
+   
+    # Fuzzy match the name with list of sinks/sources
     if [ "$target" == "output" ]; then
-        sink="$2"
+        sink=$(pactl list short sinks | grep "$name" | head -n 1 | cut -f 2)
+        if [ -z "$sink" ]; then
+            echo "No matching sink found for $name"
+            exit 1
+        fi
         pactl set-default-sink "$sink"
-        pactl set-sink-port "$sink" "$port"
     elif [ "$target" == "input" ]; then
-        source="$2"
+        source=$(pactl list short sources | grep "$name" | head -n 1 | cut -f 2)
+        if [ -z "$source" ]; then
+            echo "No matching source found for $name"
+            exit 3
+        fi
         pactl set-default-source "$source"
-        pactl set-source-port "$source" "$port"
     else
         echo "Invalid target: $target"
-        exit 1
+        exit 2
     fi
 }
 
 # Set sound for speaker
 set_speaker() {
-    set_sound "output" "$speaker_sink" "$speaker_port"
-    set_sound "input" "$speaker_source" "$microphone_port"
+    set_sound "output" "$speaker_sink"
+    set_sound "input" "$speaker_source"
 }
 
 # Set sound for headset
 set_headset() {
-    set_sound "output" "$headset_sink" "$headset_port"
-    set_sound "input" "$headset_source" "$headset_microphone_port"
+    set_sound "output" "$headset_sink"
+    set_sound "input" "$headset_source"
 }
 
 # Usage information
@@ -61,7 +63,7 @@ usage() {
     echo "Usage: $0 [-s|-h]"
     echo "  -s: Set sound for speaker"
     echo "  -h: Set sound for headset"
-    exit 1
+    exit 4
 }
 
 # Check for the correct number of arguments
