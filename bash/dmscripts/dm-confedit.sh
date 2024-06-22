@@ -6,18 +6,18 @@ terminal="alacritty -e"
 dmeditor="nvim"
 
 declare -a options=(
-"alacritty - $XDG_CONFIG_HOME/alacritty/alacritty.toml"
+"alacritty - $HOME/.config/alacritty/alacritty.toml"
 "bashrc - $HOME/.bashrc"
 "bash_profile - $HOME/.bash_profile"
 "bash_prompt - $HOME/.bash_prompt/bash_prompt.bash"
-"nvim - $XDG_CONFIG_HOME/nvim/init.lua"
-"profil - $HOME/.profile"
+"nvim - $HOME/.config/nvim/init.lua"
+"profile - $HOME/.profile"
 "ssh - $HOME/.ssh/config"
 "tmux-general - $HOME/.tmux.conf"
 "tmux-master - $HOME/.tmux/config/master.tmux.conf"
 "tmux-tvim - $HOME/.tmux-tvim.conf"
 "xmonad - $HOME/.xmonad/xmonad.hs"
-"xmobar - $XDG_CONFIG_HOME/xmobar/xmobarrc"
+"xmobar - $HOME/.config/xmobar/xmobarrc"
 "quit"
 )
 
