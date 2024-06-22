@@ -169,6 +169,25 @@ clean_fontnames() {
     echo "$fonts" | sed -e "s/^[^a-zA-Z0-9]*//" -e "s/\(."${ext}"\)\?\([^a-zA-Z0-9 ]*\)$//g" | sort -u
 }
 
+# Define function to prompt for updating or aborting existing font installation
+prompt_update_or_abort() {
+  local existing_dir="$1"
+  local font="$2"
+
+  # Prompt user, default button is [Enter] which performs update
+  read -p "Font '$font' is already installed. Do you want to update it? (Enter/Y to update, N to abort): " response
+  case "$response" in
+    [Nn]*) 
+      echo "Aborting installation."
+      exit 0
+      ;;
+    *)
+      echo "Updating font..."
+      rm -rf "$existing_dir"  # First, remove the existing font directory
+      ;;
+  esac
+}
+
 # ---------------
 
 # Set up variables for API URL and font directory
@@ -247,9 +266,8 @@ fi
 
 extract_dir="$(local_nerd_font_dir "$font_name" "$font_dir")"
 # Check if font already exists
-if ls "${extract_dir}" 2>/dev/null | grep ".*.\(otf\|ttf\)$" > /dev/null 2>&1; then
-  echo "Font already exists. Aborting installation."
-  exit 1
+if ls "${extract_dir}" 2>/dev/null | grep -E ".*\.(otf|ttf)$" > /dev/null 2>&1; then
+  prompt_update_or_abort "$extract_dir" "$font_name"
 fi
 
 # get the asset url from latest release information for the NerdFont from GitHub
