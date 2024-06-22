@@ -40,9 +40,7 @@ command -v unzip >/dev/null 2>&1 || { echo >&2 "unzip is required but not instal
 # Function to clean up temporary directories and files
 clean_up() {
   local tmpdir="$1"
-  local tmpdirbase="$2"
   rm -rf "${tmpdir}"
-  rm -rf "${tmpdirbase}"
 }
 
 # Function to generate sanitized name from a string
@@ -83,14 +81,14 @@ function uninstall_font {
       echo "It should contain only font files (*.ttf/*.otf) and no subfolders."
       exit 1
     elif [[ $(find "$fontdirpath" -maxdepth 1 -type f \( -iname \*.ttf -o -iname \*.otf \) | wc -l) -eq 0 ]]; then
-      echo "No font files (*.ttf/*.otf) found in '${fontdirpath}'"
-      exit 1
+      echo -e "\nNo font files (*.ttf/*.otf) found in '${fontdirpath}'. Remove the empty folder."
+      rm -rf "$fontdirpath"
     else 
       rm -rf "$fontdirpath"
-      echo "Uninstalled font '${fontname}'."
+      echo -e "Uninstalled font '${fontname}'."
     fi
   else
-    echo "Could not find installed font '${fontname}'."
+    echo -e "Could not find installed font '${fontname}'."
     exit 1
   fi
 }
@@ -188,6 +186,62 @@ prompt_update_or_abort() {
   esac
 }
 
+validate_font_input() {
+    local font_names=$1
+    local input=$2
+    local font_name=""
+
+    if [[ "$input" =~ ^[0-9]+$ ]]; then
+        font_name=$(echo "$font_names" | sed -n "${input}p")
+    elif [[ "$font_names" =~ (^|[[:space:]])"$input"($|[[:space:]]) ]]; then
+        font_name="$input"
+    fi
+
+    if [[ -z "$font_name" ]]; then
+        echo "Error: [$input] not in font list. Try again."
+    else
+        echo "$font_name"
+    fi
+}
+
+refresh_all_fonts() {
+    local font_dir="$1"  # Default font directory
+
+    echo "Refreshing all installed fonts..."
+    for font_path in "$font_dir"/*/; do
+        if [[ -d "$font_path" ]]; then
+            local fontname=$(basename "$font_path")
+            echo -e "\nRefresh font $fontname ..."
+            uninstall_font "$fontname" "$font_dir"
+            install_font_with_all_styles "$fontname" "$font_dir"
+        fi
+    done
+    echo "All fonts have been refreshed."
+}
+
+install_font_with_all_styles() {
+    local font_name="$1"
+    local font_dir="$2"
+    local extract_dir="$(local_nerd_font_dir "$font_name" "$font_dir")"
+
+    # Get and extract the font
+    local asset_url=$(get_font_asset_url "$font_name")
+    local tmp_dir="$(mktemp -d -t nerdfontsXXXXX)"
+
+    wget -q "$asset_url" -P "$tmp_dir"
+    unzip -o "${tmp_dir}/$(basename "$asset_url")" -d "$extract_dir"
+
+    echo "Installed all styles for '$font_name' at '$extract_dir'"
+    
+    # Cleanup temporary files
+    clean_up "$tmp_dir"
+}
+
+get_font_asset_url() {
+    local font_name="$1"
+    echo $(echo "$api_response" | jq -r --arg FONT "$font_name" '.assets[] | select(.name == ($FONT + ".zip")) | .browser_download_url')
+}
+
 # ---------------
 
 # Set up variables for API URL and font directory
@@ -206,7 +260,7 @@ api_response=$(curl -s -H "Accept: application/vnd.github.v3+json" $api_url)
 # Check the exit status of the curl command
 if [[ $? -ne 0 ]]; then
   # If the curl command failed, print an error message and exit with a non-zero exit code
-  echo "Error: Failed to retrieve font information from ${api_url}" >&2
+e echo "Error: Failed to retrieve font information from ${api_url}" >&2
   exit 1
 fi
 
@@ -231,151 +285,149 @@ echo -e "\n [*]: Installed fonts under '${font_dir}'"
 
 # Ask user to choose a font
 while true; do
-  read -p $'\n'"Enter the index or full name of the font you want to install (Q/q to quit, U/u to uninstall): " font_input
+  echo -e "\nEnter the index or full name of the font you want to install.\
+  \n - Q/q to quit\
+  \n - U/u to uninstall\
+  \n - R/r to refresh all fonts"
+  read -p ": " font_input
 
-  if [[ "$font_input" =~ ^[Qq]$ ]]; then
+  case "$font_input" in
+  [Qq]) 
     echo "Quitting installation."
-    exit 0
-  elif [[ "$font_input" =~ ^[Uu]$ ]]; then
+    break
+    ;;
+  [Uu])
     read -p "Enter the index or name of the font you want to uninstall: " font_input
-    if [[ "$font_input" =~ ^[0-9]+$ ]]; then
-      uninstall_font_name=$(echo "$font_names" | sed -n "${font_input}p")
+    font_name="$(validate_font_input "$font_names" "$font_input")"
+    if [[ "$font_name" =~ ^Error ]]; then
+        echo "$font_name"  # It prints the error message.
+        continue           # Go back to the top of the loop.
+    fi
+    uninstall_font "$font_name" "$font_dir"
+    echo "Uninstallation complete."
+    ;;
+  [Rr])
+    refresh_all_fonts "$font_dir"
+    ;;
+  *)
+    font_name="$(validate_font_input "$font_names" "$font_input")"
+    if [[ "$font_name" =~ ^Error ]]; then
+        echo "$font_name"  # It prints the error message.
+        continue           # Go back to the top of the loop.
+    fi
+
+    extract_dir="$(local_nerd_font_dir "$font_name" "$font_dir")"
+    # Check if font already exists
+    if ls "${extract_dir}" 2>/dev/null | grep -E ".*\.(otf|ttf)$" > /dev/null 2>&1; then
+      prompt_update_or_abort "$extract_dir" "$font_name"
+    fi
+    
+    # get the asset url from latest release information for the NerdFont from GitHub
+    #asset_url=$(echo "$api_response" | jq -r --arg FONT "$font_name" '.assets[] | select(.name == ($FONT + ".zip")) | .browser_download_url')
+    asset_url=$(get_font_asset_url "$font_name")
+
+    # make sure the asset URL is not empty
+    if [ -z "$asset_url" ]; then
+      echo "Error: could not find asset url for '${font_name}' in latest release." >&2
+      echo "$asset_url"
+      exit 1
+    fi
+    
+    # create a temporary directory to download the zip file to
+    tmp_dir="$(mktemp -d -t nerdfonts_XXXXXX)"
+    
+    
+    # download the zip file to the temporary directory using wget
+    wget -q "${asset_url}" -P "${tmp_dir}"
+    
+    # check the exit status of the wget command
+    if [ $? -ne 0 ]; then
+      echo "Error: Failed to download font ${font_name} from ${asset_url}" >&2
+      clean_up "$tmp_dir"
+      exit 1
+    fi
+    
+    # get all font styles
+    all_styles=$(zipinfo -1 "${tmp_dir}/${font_name}.zip")
+    
+    # Print available font styles and files
+    echo "Available font styles:"
+    font_styles=$(echo "$all_styles" | grep -E '\.(ttf|otf)$' | grep -vi 'Windows')
+    num_styles=$(echo "$font_styles" | wc -l)
+    if [ "$num_styles" -eq 0 ]; then
+      echo "No font styles found. Aborting installation."
+      exit 1
+    fi
+    
+    # Determine the column width based on the longest font file name
+    column_width=$(echo "$font_styles" | awk '{ print length }' | sort -nr | head -n1)
+    
+    # Format and display the available styles with index numbers
+    echo "$font_styles" | nl -w 3 -s ') ' | awk -v width="$column_width" -v OFS=' ' '{$1=sprintf("%-3s", $1); $2=sprintf("%-" width "s", $2); print}'
+    
+    echo
+    
+    # Prompt user to input a pattern or index
+    while true; do
+      read -p "Enter the pattern to match font styles or an index to install a specific style [Enter: all styles] [Q/q to quit]: " style_input
+      
+      if [[ "$style_input" =~ ^[Qq]$ ]]; then
+        echo "Quitting the program."
+        exit 0
+      elif [ -z "$style_input" ]; then
+        fonts_tobe_installed="$font_styles"
+        break
+      elif [[ "$style_input" =~ ^[0-9]+$ ]]; then
+        style_index=$((style_input - 1))
+        if [ "$style_index" -ge 0 ] && [ "$style_index" -lt "$num_styles" ]; then
+          fonts_tobe_installed=$(echo "$font_styles" | sed -n "${style_input}p")
+          break
+        fi
+        echo "Invalid input. Please enter a valid index."
+      else
+        match_found=false
+        fonts_tobe_installed=$(echo "$font_styles" | grep -E "$style_input" || true)
+        if [ -n "$fonts_tobe_installed" ]; then
+          match_found=true
+          break
+        fi
+        echo "No font styles found matching the pattern '$style_input'. Please try again."
+      fi
+    done
+    
+    # check if file names for target font files are successfully extracted
+    if [[ $? -ne 0 || -z $fonts_tobe_installed ]]; then
+      echo "Erorr: Failed to extract information for font files in '${tmp_dir}/${font_name}.zip'"
+      exit 1
+    fi
+    
+    # check if the font folder already exists
+    if [ -z "$extract_dir" ]; then
+      echo "Error: failed to composed installation path with base director: ${font_dir} and font name: ${font_name}." >&2
+      exit 1
+    elif [ -d "$extract_dir" ]; then
+      echo "The local directory for font ${font_name} already existed at ${extract_dir}. Uninstall the font before installation."
+      echo "Aborting installation."
+      exit 0
     else
-      uninstall_font_name="$font_input"
+      mkdir -p "$extract_dir"
     fi
-    uninstall_font "$uninstall_font_name" "$font_dir"
-    exit 0
-  elif [[ "$font_input" =~ ^[0-9]+$ ]]; then
-    font_name=$(echo "$font_names" | sed -n "${font_input}p")
-    if [[ -n "$font_name" ]]; then
-      break
+    
+    echo -e "\nThe following font files will be extracted to '${extract_dir}'\n"
+    echo "$fonts_tobe_installed"
+    
+    # extract only the required files to the local directory using bsdtar
+    echo "$fonts_tobe_installed" | xargs -d '\n' unzip -qo "${tmp_dir}/${font_name}.zip" -d "$extract_dir"
+    
+    # check if the font files were extracted successfully
+    clean_up "$tmp_dir"
+    if [ $? -eq 0 ]; then
+      echo -e "\nThe '${font_name}' Nerd-Font has been installed to '${extract_dir}'."
+    else
+      echo -e "\nError: failed to install the nerd-font '${font_name}' font." >&2
+      exit 2
     fi
-  elif [[ "$font_names" =~ (^|[[:space:]])"$font_input"($|[[:space:]]) ]]; then
-    font_name="$font_input"
-    break
-  fi
-
-  echo "Invalid input. Please enter a valid index or font name, or enter Q/q to quit, U/u to uninstall."
+  esac
 done
 
-# Abort if no font specified
-if [[ -z $font_name ]]; then
-  echo "Font not specified. Aborting installation."
-  exit 1
-fi
 
-extract_dir="$(local_nerd_font_dir "$font_name" "$font_dir")"
-# Check if font already exists
-if ls "${extract_dir}" 2>/dev/null | grep -E ".*\.(otf|ttf)$" > /dev/null 2>&1; then
-  prompt_update_or_abort "$extract_dir" "$font_name"
-fi
-
-# get the asset url from latest release information for the NerdFont from GitHub
-asset_url=$(echo "$api_response" | jq -r --arg FONT "$font_name" '.assets[] | select(.name == ($FONT + ".zip")) | .browser_download_url')
-
-# make sure the asset URL is not empty
-if [ -z "$asset_url" ]; then
-  echo "Error: could not find asset url for '${font_name}' in latest release." >&2
-  echo "$asset_url"
-  exit 1
-fi
-
-# create a temporary directory to download the zip file to
-tmp_dir_base="/tmp/font_tmp"
-tmp_dir="${tmp_dir_base}/$(date +%y%m%d%h%m%s)-$(openssl rand -hex 6)"
-mkdir -p $tmp_dir 
-
-
-# download the zip file to the temporary directory using wget
-wget -q "${asset_url}" -P "${tmp_dir}"
-
-# check the exit status of the wget command
-if [ $? -ne 0 ]; then
-  echo "Error: Failed to download font ${font_name} from ${asset_url}" >&2
-  clean_up "$tmp_dir" "$tmp_dir_base"
-  exit 1
-fi
-
-# get all font styles
-all_styles=$(zipinfo -1 "${tmp_dir}/${font_name}.zip")
-
-# Print available font styles and files
-echo "Available font styles:"
-font_styles=$(echo "$all_styles" | grep -E '\.(ttf|otf)$' | grep -vi 'Windows')
-num_styles=$(echo "$font_styles" | wc -l)
-if [ "$num_styles" -eq 0 ]; then
-  echo "No font styles found. Aborting installation."
-  exit 1
-fi
-
-# Determine the column width based on the longest font file name
-column_width=$(echo "$font_styles" | awk '{ print length }' | sort -nr | head -n1)
-
-# Format and display the available styles with index numbers
-echo "$font_styles" | nl -w 3 -s ') ' | awk -v width="$column_width" -v OFS=' ' '{$1=sprintf("%-3s", $1); $2=sprintf("%-" width "s", $2); print}'
-
-echo
-
-# Prompt user to input a pattern or index
-while true; do
-  read -p "Enter the pattern to match font styles or an index to install a specific style [Enter: all styles] [Q/q to quit]: " style_input
-  
-  if [[ "$style_input" =~ ^[Qq]$ ]]; then
-    echo "Quitting the program."
-    exit 0
-  elif [ -z "$style_input" ]; then
-    fonts_tobe_installed="$font_styles"
-    break
-  elif [[ "$style_input" =~ ^[0-9]+$ ]]; then
-    style_index=$((style_input - 1))
-    if [ "$style_index" -ge 0 ] && [ "$style_index" -lt "$num_styles" ]; then
-      fonts_tobe_installed=$(echo "$font_styles" | sed -n "${style_input}p")
-      break
-    fi
-    echo "Invalid input. Please enter a valid index."
-  else
-    match_found=false
-    fonts_tobe_installed=$(echo "$font_styles" | grep -E "$style_input" || true)
-    if [ -n "$fonts_tobe_installed" ]; then
-      match_found=true
-      break
-    fi
-    echo "No font styles found matching the pattern '$style_input'. Please try again."
-  fi
-done
-
-# check if file names for target font files are successfully extracted
-if [[ $? -ne 0 || -z $fonts_tobe_installed ]]; then
-  echo "Erorr: Failed to extract information for font files in '${tmp_dir}/${font_name}.zip'"
-  exit 1
-fi
-
-# check if the font folder already exists
-if [ -z "$extract_dir" ]; then
-  echo "Error: failed to composed installation path with base director: ${font_dir} and font name: ${font_name}." >&2
-  exit 1
-elif [ -d "$extract_dir" ]; then
-  echo "The local directory for font ${font_name} already existed at ${extract_dir}. Uninstall the font before installation."
-  echo "Aborting installation."
-  exit 0
-else
-  mkdir -p "$extract_dir"
-fi
-
-echo -e "\nThe following font files will be extracted to '${extract_dir}'\n"
-echo "$fonts_tobe_installed"
-
-# extract only the required files to the local directory using bsdtar
-echo "$fonts_tobe_installed" | xargs -d '\n' unzip -qo "${tmp_dir}/${font_name}.zip" -d "$extract_dir"
-
-# check if the font files were extracted successfully
-if [ $? -eq 0 ]; then
-  echo -e "\nThe '${font_name}' Nerd-Font has been installed to '${extract_dir}'."
-else
-  clean_up
-  echo -e "\nError: failed to install the nerd-font '${font_name}' font." >&2
-  exit 2
-fi
-
-# clean the tmp folder
-clean_up "$tmp_dir" "$tmp_dir_base"
