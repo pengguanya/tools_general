@@ -1,3 +1,4 @@
+#!/bin/bash
 ################################################################################
 # Description: Bash script to backup and synchronize a password store with a GitHub repository.
 # Author: Guanya Peng
@@ -35,8 +36,6 @@
 #
 ################################################################################
 
-#!/bin/bash
-
 # Function to commit
 function commit() {
   TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
@@ -63,6 +62,11 @@ GIT_URL="github.com:"
 
 # Set the path to your password store directory
 PASS_DIR="$HOME/.password-store"
+
+# Create PASS_DIR if it does not exist
+if [ ! -d "$PASS_DIR" ]; then
+  mkdir -p "$PASS_DIR"
+fi
 
 # Clone the GitHub repository if it doesn't exist locally
 if [ ! -d "${BACKUP_DIR}/${GH_REPO}" ]; then

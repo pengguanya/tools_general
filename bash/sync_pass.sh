@@ -1,21 +1,25 @@
-#!/bin/bash
+#!/usr/bin/env bash
+#
+# Script Name: sync_pass.sh
+# Description: Mirrors the primary `pass` entry for the current user into all
+#              other entries ending with the same username, ensuring password
+#              consistency across secrets.
+# Usage: ./sync_pass.sh
+# Requirements: pass, GNU find, gpg access to the password store
+# Safety: Uses `set -euo pipefail` and skips the source entry to avoid loops.
+# Example: ./sync_pass.sh && echo "All entries updated"
+#
+set -euo pipefail
 
-# Path to the main entry you will update manually
 MAIN_ENTRY="Work/Roche/$USER"
+PASSWORD="$(pass show "$MAIN_ENTRY" | head -n1)"
 
-# Get the password from the main entry
-PASSWORD=$(pass show "$MAIN_ENTRY")
+ENTRIES=$(find "$HOME/.password-store" -type f -name "*$USER.gpg")
 
-# Find all entries that end with $USER
-ENTRIES=$(find ~/.password-store -type f -name "*$USER.gpg")
-
-# Update all entries that end with $USER with the new password
 for ENTRY in $ENTRIES; do
-    # Convert the file path to the pass path
-    PASS_ENTRY=$(echo "$ENTRY" | sed "s|$HOME/.password-store/||" | sed 's|.gpg||')
-
-    # Ensure it is not the main entry itself
-    if [ "$PASS_ENTRY" != "$MAIN_ENTRY" ]; then
-        echo "$PASSWORD" | pass insert -f "$PASS_ENTRY"
-    fi
+  PASS_ENTRY="${ENTRY#$HOME/.password-store/}"
+  PASS_ENTRY="${PASS_ENTRY%.gpg}"
+  [[ "$PASS_ENTRY" == "$MAIN_ENTRY" ]] && continue
+  printf '%s\n' "$PASSWORD" | pass insert -f -m "$PASS_ENTRY" >/dev/null
+  echo "Updated: $PASS_ENTRY"
 done
