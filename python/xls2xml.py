@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+"""
+Excel to CSV Converter
+
+Converts Excel files (.xlsx, .xls) or XML Spreadsheet 2003 format to CSV.
+Handles ragged/irregular XML spreadsheets where title rows differ in length
+from data rows. Outputs CSV to stdout for easy piping.
+
+Usage:
+    python xls2xml.py <filename>
+    python xls2xml.py data.xls > output.csv
+"""
 import pandas as pd
 import xml.etree.ElementTree as ET
 import sys
@@ -12,7 +23,15 @@ warnings.filterwarnings("ignore")
 def _parse_xml_spreadsheet(file_path):
     """
     Parses 'XML Spreadsheet 2003' format.
+
     Handles 'Ragged' files where title rows are shorter than data rows.
+    Normalizes row widths and attempts to detect headers heuristically.
+
+    Args:
+        file_path: Path to the XML spreadsheet file.
+
+    Returns:
+        pandas.DataFrame: Parsed spreadsheet data, or None if parsing fails.
     """
     try:
         namespaces = {
@@ -81,6 +100,12 @@ def _parse_xml_spreadsheet(file_path):
         return None
 
 def main():
+    """
+    Main entry point for the Excel to CSV converter.
+
+    Attempts to read Excel files using pandas, falling back to custom
+    XML parsing for XML Spreadsheet 2003 format. Outputs CSV to stdout.
+    """
     parser = argparse.ArgumentParser(description="Convert Excel/XML-2003 to CSV via stdout.")
     parser.add_argument("filename", help="Path to the Excel file")
     args = parser.parse_args()
