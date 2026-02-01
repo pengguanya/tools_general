@@ -74,15 +74,20 @@ done
 # Function: Kill any existing process using the port
 kill_existing_process() {
     local port=$1
-    local pids
-    pids=$(lsof -ti :$port 2>/dev/null)
 
-    if [ $? -ne 0 ]; then
-        echo "[ERROR] lsof failed to check port $port. Is 'lsof' installed?"
+    # Check if lsof is installed
+    if ! command -v lsof &> /dev/null; then
+        echo "[ERROR] lsof command not found. Please install it: sudo apt install lsof"
         show_help
         exit 1
     fi
 
+    # Get list of PIDs using the port
+    # Note: lsof returns exit code 1 when no process is found, which is normal
+    local pids
+    pids=$(lsof -ti :$port 2>/dev/null)
+
+    # Check if any processes were found
     if [ -n "$pids" ]; then
         echo "[INFO] Port $port is in use. Terminating process(es): $pids"
 
