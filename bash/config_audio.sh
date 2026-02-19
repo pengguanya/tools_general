@@ -18,7 +18,7 @@
 speaker_sink="skl_hda_dsp_generic.HiFi__hw_sofhdadsp__sink"
 headset_sink="Jabra_Link"
 speaker_source="skl_hda_dsp_generic.HiFi__hw_sofhdadsp_6__source"
-headset_source="Jabra_Link"
+headset_source="alsa_input.*Jabra_Link"
 
 # Function to set sound output or input
 set_sound() {
