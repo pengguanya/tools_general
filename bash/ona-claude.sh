@@ -39,12 +39,18 @@ Options:
   --no-claude  SSH into the resolved path without launching Claude
   -h, --help   Show this help
 
+Unknown options are passed through to Claude Code (e.g. --continue, --resume).
+Use -- to separate ona-claude options from Claude options if needed.
+
 Config: ~/.config/ona/config.sh
 
 Examples:
   cd ~/work/crmPack && ona-claude          # -> /workspaces/crmPack + claude
   cd ~/work/proj/sub/dir && ona-claude     # -> /workspaces/proj/sub/dir + claude
   ona-claude --new                         # create project + subpath on remote if missing
+  ona-claude --continue                    # resume last Claude conversation
+  ona-claude --resume                      # pick a conversation to resume
+  ona-claude -- --model sonnet             # explicit separator for Claude options
   ona-claude /workspaces/workspaces        # explicit path + claude
   ona-claude --no-claude                   # mirrored path, bash shell
 EOF
@@ -91,13 +97,15 @@ find_remote_path() {
 LAUNCH_CLAUDE=true
 CREATE_NEW=false
 TARGET_DIR=""
+CLAUDE_ARGS=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -h|--help)    show_help; exit 0 ;;
         --new|-n)     CREATE_NEW=true; shift ;;
         --no-claude)  LAUNCH_CLAUDE=false; shift ;;
-        -*)           echo "Unknown option: $1" >&2; show_help >&2; exit 1 ;;
+        --)           shift; CLAUDE_ARGS+=("$@"); break ;;
+        -*)           CLAUDE_ARGS+=("$1"); shift ;;
         *)            TARGET_DIR="$1"; shift ;;
     esac
 done
@@ -163,11 +171,18 @@ else
 fi
 
 if [[ "$LAUNCH_CLAUDE" == true ]]; then
+    # Build Claude command with any pass-through args
+    CLAUDE_FULL="$ONA_CLAUDE_CMD"
+    if [[ ${#CLAUDE_ARGS[@]} -gt 0 ]]; then
+        for arg in "${CLAUDE_ARGS[@]}"; do
+            CLAUDE_FULL+=" $(printf '%q' "$arg")"
+        done
+    fi
     # Run Claude then drop into bash; Ctrl+D or 'exit' from bash ends SSH
     if [[ -n "$CD_CMD" ]]; then
-        ssh -t -o ConnectTimeout=10 "$SSH_HOST" "$CD_CMD && $ONA_CLAUDE_CMD; exec bash"
+        ssh -t -o ConnectTimeout=10 "$SSH_HOST" "$CD_CMD && $CLAUDE_FULL; exec bash"
     else
-        ssh -t -o ConnectTimeout=10 "$SSH_HOST" "$ONA_CLAUDE_CMD; exec bash"
+        ssh -t -o ConnectTimeout=10 "$SSH_HOST" "$CLAUDE_FULL; exec bash"
     fi
 else
     if [[ -n "$CD_CMD" ]]; then
