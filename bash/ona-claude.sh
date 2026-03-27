@@ -163,10 +163,11 @@ else
 fi
 
 if [[ "$LAUNCH_CLAUDE" == true ]]; then
+    # Run Claude then drop into bash; Ctrl+D or 'exit' from bash ends SSH
     if [[ -n "$CD_CMD" ]]; then
-        ssh -t -o ConnectTimeout=10 "$SSH_HOST" "$CD_CMD && exec $ONA_CLAUDE_CMD"
+        ssh -t -o ConnectTimeout=10 "$SSH_HOST" "$CD_CMD && $ONA_CLAUDE_CMD; exec bash"
     else
-        ssh -t -o ConnectTimeout=10 "$SSH_HOST" "exec $ONA_CLAUDE_CMD"
+        ssh -t -o ConnectTimeout=10 "$SSH_HOST" "$ONA_CLAUDE_CMD; exec bash"
     fi
 else
     if [[ -n "$CD_CMD" ]]; then
