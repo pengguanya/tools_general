@@ -35,6 +35,7 @@ Path resolution (in order):
   3. Fallback                     -> remote home directory
 
 Options:
+  --new        Create the project folder on remote if it doesn't exist
   --no-claude  SSH into the resolved path without launching Claude
   -h, --help   Show this help
 
@@ -42,20 +43,27 @@ Config: ~/.config/ona/config.sh
 
 Examples:
   cd ~/work/crmPack && ona-claude          # -> /workspaces/crmPack + claude
+  cd ~/work/proj/sub/dir && ona-claude     # -> /workspaces/proj/sub/dir + claude
+  ona-claude --new                         # create project + subpath on remote if missing
   ona-claude /workspaces/workspaces        # explicit path + claude
   ona-claude --no-claude                   # mirrored path, bash shell
 EOF
 }
 
-# --- Extract project name from CWD ---
-# If CWD is under a known local root, return the first path component after that root.
+# --- Extract project name and subpath from CWD ---
+# If CWD is under a known local root, prints "project_name\nsubpath" (subpath may be empty).
 resolve_project_name() {
     local cwd="$1"
     for root in "${ONA_LOCAL_ROOTS[@]}"; do
         if [[ "$cwd" == "$root"/* ]]; then
             local rel="${cwd#"$root"/}"
-            # First component only (the project folder name)
-            echo "${rel%%/*}"
+            local project="${rel%%/*}"
+            local sub="${rel#*/}"
+            echo "$project"
+            # Print subpath on second line (empty if CWD is project root)
+            if [[ "$sub" != "$rel" ]]; then
+                echo "$sub"
+            fi
             return 0
         fi
     done
@@ -81,11 +89,13 @@ find_remote_path() {
 
 # --- Main ---
 LAUNCH_CLAUDE=true
+CREATE_NEW=false
 TARGET_DIR=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -h|--help)    show_help; exit 0 ;;
+        --new|-n)     CREATE_NEW=true; shift ;;
         --no-claude)  LAUNCH_CLAUDE=false; shift ;;
         -*)           echo "Unknown option: $1" >&2; show_help >&2; exit 1 ;;
         *)            TARGET_DIR="$1"; shift ;;
@@ -101,14 +111,46 @@ SSH_HOST="${ENV_ID}.gitpod.environment"
 
 # Resolve target directory
 if [[ -z "$TARGET_DIR" ]]; then
-    PROJECT_NAME=$(resolve_project_name "$(pwd)") || true
+    RESOLVE_OUTPUT=$(resolve_project_name "$(pwd)") || true
+    PROJECT_NAME=$(echo "$RESOLVE_OUTPUT" | head -1)
+    RESOLVE_SUBPATH=$(echo "$RESOLVE_OUTPUT" | sed -n '2p')
     if [[ -n "$PROJECT_NAME" ]]; then
         REMOTE_PATH=$(find_remote_path "$PROJECT_NAME" "$ENV_ID") || true
         if [[ -n "$REMOTE_PATH" ]]; then
             TARGET_DIR="$REMOTE_PATH"
+            # Append subpath if CWD is deeper than the project root
+            if [[ -n "$RESOLVE_SUBPATH" ]]; then
+                TARGET_DIR="$TARGET_DIR/$RESOLVE_SUBPATH"
+                # Create subpath on remote if --new and it may not exist
+                if [[ "$CREATE_NEW" == true ]]; then
+                    ssh -o ConnectTimeout=10 "$SSH_HOST" "mkdir -p '$TARGET_DIR'" 2>/dev/null
+                fi
+            fi
             echo "Resolved: $PROJECT_NAME -> $TARGET_DIR" >&2
+        elif [[ "$CREATE_NEW" == true ]]; then
+            # Create under the first remote root and pre-trust for Claude
+            local PROJECT_ROOT="${ONA_REMOTE_ROOTS[0]}/$PROJECT_NAME"
+            TARGET_DIR="$PROJECT_ROOT"
+            # Append subpath for full directory creation
+            if [[ -n "$RESOLVE_SUBPATH" ]]; then
+                TARGET_DIR="$TARGET_DIR/$RESOLVE_SUBPATH"
+            fi
+            echo "Creating: $TARGET_DIR on remote" >&2
+            ssh -o ConnectTimeout=10 "$SSH_HOST" "mkdir -p '$TARGET_DIR'" 2>/dev/null
+            # Pre-trust the project root so Claude skips the trust dialog
+            ssh -o ConnectTimeout=10 "$SSH_HOST" "
+                CF=\$HOME/.claude.json
+                TRUST_DIR='$PROJECT_ROOT'
+                if [ -f \"\$CF\" ] && command -v jq >/dev/null 2>&1; then
+                    if ! jq -e --arg d \"\$TRUST_DIR\" '.projects[\$d]' \"\$CF\" >/dev/null 2>&1; then
+                        jq --arg d \"\$TRUST_DIR\" '.projects[\$d] = {\"allowedTools\":[],\"hasTrustDialogAccepted\":true}' \"\$CF\" > \"\$CF.tmp\" && mv \"\$CF.tmp\" \"\$CF\"
+                        echo \"Trusted: \$TRUST_DIR\" >&2
+                    fi
+                fi
+            " 2>&2 || true
         else
             echo "Warning: Project '$PROJECT_NAME' not found on remote. Falling back to home." >&2
+            echo "  Hint: use --new to create it automatically." >&2
         fi
     fi
 fi
