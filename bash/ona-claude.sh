@@ -113,15 +113,21 @@ done
 # Source ona-ssh for ona_find_env function
 source "$SCRIPT_DIR/ona-ssh.sh"
 
-ENV_ID=$(ona_find_env)
+# Extract project name early so we can pass it to ona_find_env
+PROJECT_NAME=""
+RESOLVE_SUBPATH=""
+if [[ -z "$TARGET_DIR" ]]; then
+    RESOLVE_OUTPUT=$(resolve_project_name "$(pwd)") || true
+    PROJECT_NAME=$(echo "$RESOLVE_OUTPUT" | head -1)
+    RESOLVE_SUBPATH=$(echo "$RESOLVE_OUTPUT" | sed -n '2p')
+fi
+
+ENV_ID=$(ona_find_env "$PROJECT_NAME")
 
 SSH_HOST="${ENV_ID}.gitpod.environment"
 
 # Resolve target directory
 if [[ -z "$TARGET_DIR" ]]; then
-    RESOLVE_OUTPUT=$(resolve_project_name "$(pwd)") || true
-    PROJECT_NAME=$(echo "$RESOLVE_OUTPUT" | head -1)
-    RESOLVE_SUBPATH=$(echo "$RESOLVE_OUTPUT" | sed -n '2p')
     if [[ -n "$PROJECT_NAME" ]]; then
         REMOTE_PATH=$(find_remote_path "$PROJECT_NAME" "$ENV_ID") || true
         if [[ -n "$REMOTE_PATH" ]]; then
@@ -137,7 +143,7 @@ if [[ -z "$TARGET_DIR" ]]; then
             echo "Resolved: $PROJECT_NAME -> $TARGET_DIR" >&2
         elif [[ "$CREATE_NEW" == true ]]; then
             # Create under the first remote root and pre-trust for Claude
-            local PROJECT_ROOT="${ONA_REMOTE_ROOTS[0]}/$PROJECT_NAME"
+            PROJECT_ROOT="${ONA_REMOTE_ROOTS[0]}/$PROJECT_NAME"
             TARGET_DIR="$PROJECT_ROOT"
             # Append subpath for full directory creation
             if [[ -n "$RESOLVE_SUBPATH" ]]; then
