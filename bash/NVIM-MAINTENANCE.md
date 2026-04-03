@@ -29,7 +29,7 @@ This system manages five concerns:
 |---------|--------|--------------|
 | Binary updates | `nvim-update` | Downloads latest Neovim AppImage from GitHub |
 | Upstream sync | `nvim-sync-upstream` | Merges kickstart.nvim upstream changes into your fork |
-| Health checks | `nvim-health` | Verifies binary, startup errors/warnings, plugins, LSP servers, treesitter parsers |
+| Health checks | `nvim-health` | Verifies binary, startup errors/warnings (default), plugins, LSP servers, treesitter parsers |
 | New machine setup | `nvim-bootstrap` | Full installation from scratch |
 | Orchestration | `nvim-maintain` | Combines all of the above into single commands |
 
@@ -85,7 +85,7 @@ GitHub
 | Nvim binary (`~/.local/bin/nvim`) | No | Downloaded per-machine (arch-specific AppImage) |
 | Plugin installations (`~/.local/share/nvim/lazy/`) | No | Restored from `lazy-lock.json` via `:Lazy sync` |
 | Mason tools (LSP servers, etc.) | No | Reinstalled per-machine via `:MasonToolsInstallSync` |
-| Treesitter parsers | No | Compiled per-machine via `:TSUpdateSync` |
+| Treesitter parsers | No | Compiled per-machine via `:TSUpdate` |
 | Backup binaries | No | Local only |
 
 ---
@@ -157,7 +157,7 @@ nvim-update --install --version v0.11.6
 nvim-maintain --plugins
 ```
 
-This runs `:Lazy sync` headlessly (equivalent to opening nvim and running `:Lazy sync` manually), then checks plugin health.
+This runs `:Lazy sync` headlessly (equivalent to opening nvim and running `:Lazy sync` manually), then runs a startup error check and plugin health check. The startup check catches breaking config changes introduced by plugin updates (e.g., deprecated options).
 
 You can also update Mason tools or treesitter parsers individually:
 ```bash
@@ -453,11 +453,22 @@ Treesitter parsers are compiled grammars used for syntax highlighting, indentati
 
 ### After updating plugins
 
-If a plugin update introduces breaking changes:
+Plugin updates now automatically run a startup error check (`nvim-health --startup`) alongside the component-specific check. If a plugin update introduces a breaking config change, you'll see it immediately in the output:
 
-1. Check the plugin's changelog on GitHub
-2. If something breaks, you can pin the plugin to a previous version by editing `lazy-lock.json` and running `:Lazy restore`
-3. Run `nvim-health --plugins` to verify everything loads correctly
+```
+=== Startup ===
+  FAIL Startup errors/warnings detected:
+    The `provider` option has been removed...
+```
+
+To fix:
+1. Read the error message -- it names the plugin and the issue
+2. Check the plugin's changelog on GitHub for migration instructions
+3. Update your config (usually in `lua/custom/plugins/`)
+4. Re-run `nvim-health --startup` to verify
+5. If you can't fix the config, pin the plugin to a previous version by editing `lazy-lock.json` and running `:Lazy restore`
+
+When using Claude Code, the `/nvim-maintain` skill will automatically inspect health check output and attempt to fix config errors (see [Using with Claude Code](#using-with-claude-code)).
 
 ---
 
@@ -549,8 +560,21 @@ Claude reads the skill file (`~/.claude/skills/nvim-maintain/SKILL.md`) which co
 - Key file locations
 - Workflow instructions
 - Conflict resolution guidance
+- Post-run error handling: instructions to inspect health check output, diagnose startup errors, fix config issues, and verify the fix
 
-Claude does **not** need to read the script source code -- the skill file is the compact interface (about 50 lines). This keeps token usage minimal.
+Claude does **not** need to read the script source code -- the skill file is the compact interface. This keeps token usage minimal.
+
+### Automatic error remediation
+
+When Claude runs any maintenance command and the output contains startup errors (deprecated options, removed APIs, plugin load failures), the skill instructs Claude to:
+
+1. Identify the plugin causing the error
+2. Read the plugin config and source for migration guidance
+3. Fix the config file
+4. Re-run `nvim-health --startup` to verify
+5. Commit the fix
+
+This means most breaking plugin changes are caught and fixed in the same `/nvim-maintain` session.
 
 ### Asking Claude for help
 

@@ -2,7 +2,7 @@
 #
 # Script Name: nvim-health.sh
 # Description: Run health checks on Neovim installation (binary, plugins, LSP, treesitter)
-# Usage: nvim-health [--all | --binary | --plugins | --lsp | --treesitter] [-q] [-h]
+# Usage: nvim-health [--all | --binary | --plugins | --lsp | --treesitter | --deps] [-q] [-h]
 # Requirements: nvim
 # Example: nvim-health --all
 #          nvim-health --plugins --lsp
@@ -37,6 +37,7 @@ Options:
   --plugins         Check lazy.nvim plugin status
   --lsp             Check Mason-installed LSP servers
   --treesitter      Check treesitter parsers
+  --deps            Check companion tools (tree-sitter CLI, gcc, make, curl, node)
   -q, --quiet       Exit code only, no output
   -h, --help        Show this help message
 
@@ -200,6 +201,67 @@ check_lsp() {
   fi
 }
 
+# Compare two version strings: returns 0 (true) if $1 >= $2
+version_ge() {
+  printf '%s\n%s' "$2" "$1" | sort -V | head -1 | grep -q "^${2}$"
+}
+
+check_treesitter_cli() {
+  if ! command -v tree-sitter >/dev/null 2>&1; then
+    fail "tree-sitter CLI not found in PATH (required for parser compilation)"
+    info "  Install with: cargo install tree-sitter-cli or npm install -g tree-sitter-cli"
+    return 1
+  fi
+
+  local ts_version
+  ts_version="$(tree-sitter --version 2>/dev/null | grep -oP '[\d.]+' | head -1)" || {
+    fail "Could not determine tree-sitter CLI version"
+    return 1
+  }
+
+  local min_version="0.26.1"
+  if version_ge "$ts_version" "$min_version"; then
+    pass "tree-sitter CLI: v$ts_version (>= $min_version required)"
+  else
+    fail "tree-sitter CLI: v$ts_version (>= $min_version required)"
+    info "  Update with: cargo install tree-sitter-cli or npm install -g tree-sitter-cli@latest"
+    return 1
+  fi
+}
+
+check_deps() {
+  log ""
+  log "${BLUE}=== Dependencies ===${NC}"
+
+  # tree-sitter CLI
+  check_treesitter_cli || true
+
+  # Compiler toolchain (needed for parser compilation)
+  for tool in gcc make; do
+    if command -v "$tool" >/dev/null 2>&1; then
+      pass "$tool found: $(command -v "$tool")"
+    else
+      fail "$tool not found (required for compiling treesitter parsers)"
+    fi
+  done
+
+  # curl (needed for downloading parsers)
+  if command -v curl >/dev/null 2>&1; then
+    pass "curl found: $(command -v curl)"
+  else
+    fail "curl not found (required for downloading parsers and AppImage)"
+  fi
+
+  # node/npm (optional, for some tools)
+  if command -v node >/dev/null 2>&1; then
+    local node_ver
+    node_ver="$(node --version 2>/dev/null)"
+    pass "node found: $node_ver"
+  else
+    info "node not found (optional)"
+  fi
+}
+
 check_treesitter() {
   log ""
   log "${BLUE}=== Treesitter ===${NC}"
@@ -208,6 +270,9 @@ check_treesitter() {
     fail "nvim not available"
     return
   fi
+
+  # Check tree-sitter CLI version
+  check_treesitter_cli || true
 
   local parser_dir="$HOME/.local/share/nvim/lazy/nvim-treesitter/parser"
   if [[ ! -d "$parser_dir" ]]; then
@@ -228,6 +293,27 @@ check_treesitter() {
       done
     else
       fail "No treesitter parsers found"
+    fi
+
+    # Validate configured parsers from init.lua
+    if [[ -f "$NVIM_CONFIG/init.lua" ]]; then
+      local configured
+      configured="$(grep -oP "local parsers\s*=\s*\{[^}]+\}" "$NVIM_CONFIG/init.lua" \
+        | grep -oP "'(\w+)'" | tr -d "'" | sort -u)" || true
+      if [[ -n "$configured" ]]; then
+        # Check both lazy plugin dir and nvim site dir for parsers
+        local alt_parser_dir="$HOME/.local/share/nvim/site/parser"
+        local missing=0
+        for lang in $configured; do
+          if [[ ! -f "$parser_dir/${lang}.so" ]] && [[ ! -f "$alt_parser_dir/${lang}.so" ]]; then
+            fail "Configured parser missing: $lang"
+            missing=$((missing + 1))
+          fi
+        done
+        if (( missing == 0 )); then
+          pass "All configured parsers are installed"
+        fi
+      fi
     fi
   else
     info "Parser directory not found (parsers may be in a different location)"
@@ -258,12 +344,13 @@ check_config() {
 checks=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --all)        checks=(binary startup plugins lsp treesitter config); shift ;;
+    --all)        checks=(binary startup plugins lsp treesitter deps config); shift ;;
     --binary)     checks+=(binary); shift ;;
     --startup)    checks+=(startup); shift ;;
     --plugins)    checks+=(plugins); shift ;;
     --lsp)        checks+=(lsp); shift ;;
     --treesitter) checks+=(treesitter); shift ;;
+    --deps)       checks+=(deps); shift ;;
     -q|--quiet)   QUIET=true; shift ;;
     -h|--help)    show_help; exit 0 ;;
     *)
@@ -275,7 +362,7 @@ done
 
 # Default to all checks
 if [[ ${#checks[@]} -eq 0 ]]; then
-  checks=(binary plugins lsp treesitter config)
+  checks=(binary startup plugins lsp treesitter deps config)
 fi
 
 log "${BLUE}Neovim Health Check${NC}"
@@ -287,6 +374,7 @@ for check in "${checks[@]}"; do
     plugins)    check_plugins ;;
     lsp)        check_lsp ;;
     treesitter) check_treesitter ;;
+    deps)       check_deps ;;
     config)     check_config ;;
   esac
 done
