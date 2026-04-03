@@ -8,8 +8,10 @@ bitwarden-export:../python/bitwarden_smart_export.py
 cap2ctrl:cap2ctrl.sh
 confaudio:config_audio.sh
 dm-confedit:dmscripts/dm-confedit.sh
+enable_monitor:enable_monitor.sh
 fastlocal:fastlocal.sh
 fixsudo:fix_sudo.sh
+genpass:genpass.sh
 genpass-py:../python/genpass.py
 getvol:get_volume.sh
 git-commit-random-time:git-commit-random-time.sh
@@ -20,8 +22,15 @@ killtops:kill_top_process.sh
 list_chrome_process:list_chrome_process.sh
 localhost:localhost.sh
 makecmd:makecmd.sh
+mathe-block:mathe_block.sh
+mathe-ueben:mathe_ueben.sh
 mycmds:mycmds.sh
 nerdfont:nerd_font.sh
+nvim-bootstrap:nvim-bootstrap.sh
+nvim-health:nvim-health.sh
+nvim-maintain:nvim-maintain.sh
+nvim-sync-upstream:nvim-sync-upstream.sh
+nvim-update:nvim-update.sh
 ona-claude:ona-claude.sh
 ona-ssh:ona-ssh.sh
 opencon_core:open_con.sh
@@ -29,6 +38,7 @@ opencon:open_con_client.sh
 restore_secrets_from_bitwarden:restore_secrets_from_bitwarden.sh
 setup_symlinks:setup_symlinks.sh
 shpc:shpc.sh
+sync-ai-skills:sync_ai_skills.sh
 syncpass:sync_pass.sh
 togaudio:togaudio.sh
 togmute:toggle_mute.sh
