@@ -33,6 +33,12 @@ set_sound() {
             exit 1
         fi
         pactl set-default-sink "$sink"
+        # Fix balance: ensure both channels have the same volume
+        local vol
+        vol=$(pactl get-sink-volume "$sink" | grep -oP '\d+%' | sort -t% -k1 -rn | head -1)
+        if [ -n "$vol" ]; then
+            pactl set-sink-volume "$sink" "$vol"
+        fi
     elif [ "$target" == "input" ]; then
         source=$(pactl list short sources | grep "$name" | head -n 1 | cut -f 2)
         if [ -z "$source" ]; then

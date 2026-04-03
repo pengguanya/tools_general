@@ -30,7 +30,8 @@ format_output() {
 get_sink_volume() {
     local sink_name="$1"
     volume_info=$(pactl get-sink-volume "$sink_name")
-    volume_level=$(echo "$volume_info" | awk 'tolower($0) ~ /volume:/ {print $5}')
+    # Use max of both channels to handle skewed balance
+    volume_level=$(echo "$volume_info" | grep -oP '\d+%' | sort -t% -k1 -rn | head -1)
     format_output "$volume_level"
 }
 
