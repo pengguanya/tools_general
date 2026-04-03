@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import secrets
 import string
 
@@ -6,10 +7,12 @@ def generate_password(min_length=15, max_length=25):
     uppercase = string.ascii_uppercase
     lowercase = string.ascii_lowercase
     digits = string.digits
-    allowed_symbols = "%&#-=+"
-    
-    # For the first character, only letters are allowed.
-    first_allowed = uppercase + lowercase
+    allowed_symbols = "\"%&'()*+,-./:;<=>?!"
+    # ? and ! cannot be the first character
+    first_char_symbols = "\"%&'()*+,-./:;<=>".replace(" ", "")
+
+    # For the first character: letters, digits, and symbols except ? and !
+    first_allowed = uppercase + lowercase + digits + first_char_symbols
     # For the rest, combine all allowed characters.
     all_chars = uppercase + lowercase + digits + allowed_symbols
 
