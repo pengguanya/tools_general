@@ -3,6 +3,7 @@
 # Lines starting with # are comments
 # Managed by setup_symlinks.sh
 
+aiconf:aiconf.sh
 audiodev:get_audio_dev.sh
 bitwarden-export:../python/bitwarden_smart_export.py
 cap2ctrl:cap2ctrl.sh
@@ -24,6 +25,7 @@ localhost:localhost.sh
 makecmd:makecmd.sh
 mathe-block:mathe_block.sh
 mathe-ueben:mathe_ueben.sh
+migration-check:migration_check.sh
 mycmds:mycmds.sh
 nerdfont:nerd_font.sh
 nvim-bootstrap:nvim-bootstrap.sh
@@ -35,7 +37,9 @@ ona-claude:ona-claude.sh
 ona-ssh:ona-ssh.sh
 opencon_core:open_con.sh
 opencon:open_con_client.sh
+pre-migration-backup:pre_migration_backup.sh
 restore_secrets_from_bitwarden:restore_secrets_from_bitwarden.sh
+rochevpn:../python/rlc-tools/bin/rochevpn
 setup_symlinks:setup_symlinks.sh
 shpc:shpc.sh
 sync-ai-skills:sync_ai_skills.sh
@@ -46,4 +50,5 @@ togscrn:toggle_screen.sh
 unzipall:unzipall.sh
 update_claude_settings:update_claude_settings.sh
 upload_secrets_to_bitwarden:upload_secrets_to_bitwarden.sh
+vpncon:vpncon.sh
 xls2xml:../python/xls2xml.py
