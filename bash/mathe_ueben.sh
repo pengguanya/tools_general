@@ -6,7 +6,7 @@ set -euo pipefail
 # Claude is called via 'claude -p' for exercise generation and evaluation.
 # All user interaction happens in this terminal — no interactive Claude session.
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
 # === Colors ===
 RED='\033[0;31m'
