@@ -32,8 +32,9 @@ Usage: sync-ai-skills [OPTIONS]
 Sync Claude Code skills to OpenCode and Kilocode via symlinks.
 Uses ~/.claude/skills/ as the single source of truth.
 
-Only real directories (custom skills) are synced. Symlinked skills
-(marketplace/shared via ~/.agents/) are skipped.
+All skill entries are synced, including symlinked skills (toolkit,
+marketplace). Each target gets a symlink pointing to the entry in
+~/.claude/skills/ (which may itself be a symlink — that's fine).
 
 Options:
   -n, --dry-run    Preview changes without making them
@@ -92,17 +93,10 @@ for target_dir in "${TARGETS[@]}"; do
         fi
     fi
 
-    # Sync: create symlinks for real directories in source
+    # Sync: create symlinks for all skill entries in source (dirs and symlinks)
     for skill_path in "$SOURCE_DIR"/*/; do
         [[ ! -d "$skill_path" ]] && continue
         skill_name=$(basename "$skill_path")
-
-        # Skip symlinked skills (marketplace/shared)
-        if [[ -L "${SOURCE_DIR}/${skill_name}" ]]; then
-            log_skip "$skill_name (symlink in source)"
-            ((skipped++)) || true
-            continue
-        fi
 
         target_link="$target_dir/$skill_name"
 
