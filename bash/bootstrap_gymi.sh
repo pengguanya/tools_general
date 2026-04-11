@@ -62,9 +62,23 @@ else
 fi
 
 # ============================================================
-# Phase 2: Python packages
+# Phase 2: uv (Python package manager)
 # ============================================================
-phase 2 "Python packages (pip)"
+phase 2 "uv (Python package manager)"
+
+if command -v uv &>/dev/null; then
+    skip "uv $(uv --version 2>/dev/null | awk '{print $2}')"
+else
+    echo "  Installing uv..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="$HOME/.local/bin:$PATH"
+    ok "uv $(uv --version 2>/dev/null | awk '{print $2}')"
+fi
+
+# ============================================================
+# Phase 3: Python packages
+# ============================================================
+phase 3 "Python packages (uv)"
 
 PIP_NEEDED=()
 if ! python3 -c "import jinja2" &>/dev/null; then
@@ -75,16 +89,16 @@ if ! python3 -c "from pypdf import PdfWriter" &>/dev/null; then
 fi
 
 if [[ ${#PIP_NEEDED[@]} -gt 0 ]]; then
-    pip3 install --user --quiet "${PIP_NEEDED[@]}"
+    uv pip install --python "$(command -v python3)" --break-system-packages --target "$(python3 -c 'import site; print(site.getusersitepackages())')" --quiet "${PIP_NEEDED[@]}"
     ok "Installed: ${PIP_NEEDED[*]}"
 else
     skip "jinja2, pypdf"
 fi
 
 # ============================================================
-# Phase 3: Shell setup
+# Phase 4: Shell setup
 # ============================================================
-phase 3 "Shell setup (PATH, aliases)"
+phase 4 "Shell setup (PATH, aliases)"
 
 # Detect shell rc file
 if [[ -n "${ZSH_VERSION:-}" ]] || [[ "$SHELL" == */zsh ]]; then
@@ -115,9 +129,9 @@ fi
 export PATH="$HOME/.local/bin:$PATH"
 
 # ============================================================
-# Phase 4: CLI tool symlinks
+# Phase 5: CLI tool symlinks
 # ============================================================
-phase 4 "CLI tool symlinks (setup_symlinks.sh)"
+phase 5 "CLI tool symlinks (setup_symlinks.sh)"
 
 if [[ -f "$SCRIPT_DIR/setup_symlinks.sh" ]]; then
     bash "$SCRIPT_DIR/setup_symlinks.sh" 2>/dev/null
@@ -128,9 +142,9 @@ else
 fi
 
 # ============================================================
-# Phase 5: aiconf (skills, shared libs, agents)
+# Phase 6: aiconf (skills, shared libs, agents)
 # ============================================================
-phase 5 "aiconf (Claude skills + shared libraries)"
+phase 6 "aiconf (Claude skills + shared libraries)"
 
 AICONF_GIT="$HOME/.ai-config.git"
 AICONF_REMOTE="git@github.com:pengguanya/ai-config.git"
@@ -160,9 +174,9 @@ else
 fi
 
 # ============================================================
-# Phase 6: luca_study (student data + exams)
+# Phase 7: luca_study (student data + exams)
 # ============================================================
-phase 6 "luca_study (student data, worksheets, exams)"
+phase 7 "luca_study (student data, worksheets, exams)"
 
 STUDY_DIR="$HOME/work/luca_study"
 STUDY_REMOTE="git@github.com:pengguanya/luca_study.git"
@@ -177,9 +191,9 @@ else
 fi
 
 # ============================================================
-# Phase 7: Verification
+# Phase 8: Verification
 # ============================================================
-phase 7 "Verification"
+phase 8 "Verification"
 
 CHECKS=0
 PASSED=0
@@ -195,6 +209,7 @@ verify() {
     fi
 }
 
+verify "command -v uv"                               "uv"
 verify "command -v xelatex"                          "xelatex"
 verify "command -v pdfunite"                         "pdfunite"
 verify "command -v jq"                               "jq"
@@ -218,7 +233,7 @@ verify "[[ -f $STUDY_DIR/deutsch/student_profile.json ]]" \
                                                      "deutsch student profile"
 verify "[[ -f $STUDY_DIR/math/student_profile.json ]]" \
                                                      "math student profile"
-verify "[[ -d $STUDY_DIR/Gymiprufung/.git ]]"        "Gymiprufung submodule"
+verify "[[ -e $STUDY_DIR/Gymiprufung/.git ]]"        "Gymiprufung submodule"
 
 # ============================================================
 # Summary
