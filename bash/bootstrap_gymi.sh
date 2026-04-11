@@ -1,37 +1,27 @@
 #!/usr/bin/env bash
+#
+# Script Name: bootstrap_gymi.sh
+# Description: Reproduce the Gymiprufung batch training workflow on a fresh machine
+# Usage: bootstrap_gymi.sh [--check | -h]
+# Requirements: git, curl, sudo (for apt)
+# Example: cd ~/tools/general && bash bash/bootstrap_gymi.sh
+#          bash bash/bootstrap_gymi.sh --check
+#
 set -euo pipefail
 
-# bootstrap_gymi.sh — Reproduce the Gymiprufung batch training workflow
-#
-# Usage (on a fresh WSL2 Ubuntu machine with git + Claude Code):
-#   git clone git@github.com:pengguanya/tools_general.git ~/tools/general
-#   cd ~/tools/general && bash bash/bootstrap_gymi.sh
-#
-# Idempotent: safe to re-run. Each step checks if already done.
-# Does NOT install Claude Code, set up SSH keys, or touch secrets.
+# ============================================================
+# Configuration — edit here when adding packages, repos, etc.
+# ============================================================
 
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
-# --- Colors ---
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-BOLD='\033[1m'
-NC='\033[0m'
+# Git repos
+AICONF_GIT="$HOME/.ai-config.git"
+AICONF_REMOTE="git@github.com:pengguanya/ai-config.git"
+STUDY_DIR="$HOME/work/luca_study"
+STUDY_REMOTE="git@github.com:pengguanya/luca_study.git"
 
-ok()   { echo -e "  ${GREEN}[done]${NC} $1"; }
-skip() { echo -e "  ${YELLOW}[skip]${NC} $1 (already set up)"; }
-fail() { echo -e "  ${RED}[FAIL]${NC} $1"; }
-phase() { echo -e "\n${BOLD}${BLUE}=== Phase $1: $2 ===${NC}"; }
-
-ERRORS=0
-
-# ============================================================
-# Phase 1: System packages
-# ============================================================
-phase 1 "System packages (apt)"
-
+# System packages (apt)
 APT_PACKAGES=(
     texlive-xetex           # XeLaTeX engine
     texlive-latex-extra     # tcolorbox, tikz, multicol, booktabs, etc.
@@ -44,6 +34,166 @@ APT_PACKAGES=(
     python3                 # Python scripts
     python3-pip             # pip for installing Python packages
 )
+
+# Python packages: "import_check:pip_name"
+PY_MODULES=(
+    "jinja2:jinja2"
+    "pypdf:pypdf"
+)
+
+# ============================================================
+# Output helpers
+# ============================================================
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+ok()   { echo -e "  ${GREEN}[done]${NC} $1"; }
+skip() { echo -e "  ${YELLOW}[skip]${NC} $1 (already set up)"; }
+fail() { echo -e "  ${RED}[FAIL]${NC} $1"; }
+
+PHASE=0
+phase() { PHASE=$((PHASE + 1)); echo -e "\n${BOLD}${BLUE}=== Phase $PHASE: $1 ===${NC}"; }
+
+ERRORS=0
+CHECKS=0
+PASSED=0
+
+# Verification helpers — no eval needed
+verify_cmd() {
+    local label="$1"; shift
+    CHECKS=$((CHECKS + 1))
+    if "$@" &>/dev/null; then
+        ok "$label"
+        PASSED=$((PASSED + 1))
+    else
+        fail "$label"
+        ERRORS=$((ERRORS + 1))
+    fi
+}
+
+verify_path() {
+    local label="$1" path="$2"
+    CHECKS=$((CHECKS + 1))
+    if [[ -e "$path" ]]; then
+        ok "$label"
+        PASSED=$((PASSED + 1))
+    else
+        fail "$label"
+        ERRORS=$((ERRORS + 1))
+    fi
+}
+
+verify_import() {
+    local label="$1" module="$2"
+    CHECKS=$((CHECKS + 1))
+    if python3 -c "import $module" &>/dev/null; then
+        ok "$label"
+        PASSED=$((PASSED + 1))
+    else
+        fail "$label"
+        ERRORS=$((ERRORS + 1))
+    fi
+}
+
+# ============================================================
+# Argument parsing
+# ============================================================
+
+show_help() {
+    cat << 'EOF'
+Usage: bootstrap_gymi.sh [OPTIONS]
+
+Set up the Gymiprufung batch training workflow: install system packages,
+Python dependencies, CLI symlinks, aiconf skills, and student data repos.
+
+Idempotent: safe to re-run. Each step checks if already done.
+Does NOT install Claude Code, set up SSH keys, or touch secrets.
+
+Options:
+  --check       Report what is set up and what is missing (no changes)
+  -h, --help    Show this help message
+
+Quick start (fresh WSL2 Ubuntu machine with git + Claude Code):
+  git clone git@github.com:pengguanya/tools_general.git ~/tools/general
+  cd ~/tools/general && bash bash/bootstrap_gymi.sh
+EOF
+}
+
+MODE="install"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --check)    MODE="check"; shift ;;
+        -h|--help)  show_help; exit 0 ;;
+        *)
+            echo "Unknown option: $1" >&2
+            show_help >&2
+            exit 1 ;;
+    esac
+done
+
+# ============================================================
+# Verification phase (used by both --check and full run)
+# ============================================================
+
+run_verification() {
+    phase "Verification"
+
+    verify_cmd  "uv"                                command -v uv
+    verify_cmd  "xelatex"                           command -v xelatex
+    verify_cmd  "pdfunite"                           command -v pdfunite
+    verify_cmd  "jq"                                command -v jq
+    verify_cmd  "python3"                           command -v python3
+
+    for entry in "${PY_MODULES[@]}"; do
+        local mod="${entry%%:*}"
+        verify_import "$mod (python)" "$mod"
+    done
+
+    verify_cmd  "Claude Code"                       command -v claude
+    verify_cmd  "mathe-ueben (symlink)"             command -v mathe-ueben
+
+    verify_path "deutsch-batch-training skill"      "$HOME/.claude/skills/deutsch-batch-training/SKILL.md"
+    verify_path "math-batch-training skill"         "$HOME/.claude/skills/math-batch-training/SKILL.md"
+    verify_path "shared library"                    "$HOME/.claude/skills/shared/lib/config_base.sh"
+    verify_path "render engine"                     "$HOME/.claude/skills/shared/templates/render_base.py"
+    verify_path "LaTeX preamble"                    "$HOME/.claude/skills/shared/templates/preamble.tex"
+    verify_path "luca_study/config.json"            "$STUDY_DIR/config.json"
+    verify_path "deutsch student profile"           "$STUDY_DIR/deutsch/student_profile.json"
+    verify_path "math student profile"              "$STUDY_DIR/math/student_profile.json"
+    verify_path "Gymiprufung submodule"             "$STUDY_DIR/Gymiprufung/.git"
+}
+
+# ============================================================
+# Check-only mode: skip installation, jump to verification
+# ============================================================
+
+if [[ "$MODE" == "check" ]]; then
+    echo -e "${BOLD}Running in check-only mode (no changes will be made)${NC}"
+    run_verification
+
+    echo ""
+    echo -e "${BOLD}=== Summary ===${NC}"
+    echo -e "  Checks: ${PASSED}/${CHECKS} passed"
+
+    if [[ $ERRORS -eq 0 ]]; then
+        echo -e "  ${GREEN}${BOLD}All good.${NC}"
+    else
+        echo -e "  ${RED}${BOLD}${ERRORS} issue(s) found.${NC} Run without --check to install."
+    fi
+
+    exit $(( ERRORS > 0 ? 1 : 0 ))
+fi
+
+# ============================================================
+# Phase: System packages
+# ============================================================
+phase "System packages (apt)"
 
 MISSING_PKGS=()
 for pkg in "${APT_PACKAGES[@]}"; do
@@ -62,9 +212,9 @@ else
 fi
 
 # ============================================================
-# Phase 2: uv (Python package manager)
+# Phase: uv (Python package manager)
 # ============================================================
-phase 2 "uv (Python package manager)"
+phase "uv (Python package manager)"
 
 if command -v uv &>/dev/null; then
     skip "uv $(uv --version 2>/dev/null | awk '{print $2}')"
@@ -76,29 +226,39 @@ else
 fi
 
 # ============================================================
-# Phase 3: Python packages
+# Phase: Python packages
 # ============================================================
-phase 3 "Python packages (uv)"
+phase "Python packages (uv)"
 
 PIP_NEEDED=()
-if ! python3 -c "import jinja2" &>/dev/null; then
-    PIP_NEEDED+=(jinja2)
-fi
-if ! python3 -c "from pypdf import PdfWriter" &>/dev/null; then
-    PIP_NEEDED+=(pypdf)
-fi
+for entry in "${PY_MODULES[@]}"; do
+    mod="${entry%%:*}"
+    pkg="${entry##*:}"
+    if ! python3 -c "import $mod" &>/dev/null; then
+        PIP_NEEDED+=("$pkg")
+    fi
+done
 
 if [[ ${#PIP_NEEDED[@]} -gt 0 ]]; then
-    uv pip install --python "$(command -v python3)" --break-system-packages --target "$(python3 -c 'import site; print(site.getusersitepackages())')" --quiet "${PIP_NEEDED[@]}"
+    # --break-system-packages: bypass PEP 668 externally-managed check on newer Ubuntu
+    # --target user-site: install to ~/.local/lib without requiring sudo
+    uv pip install \
+        --python "$(command -v python3)" \
+        --break-system-packages \
+        --target "$(python3 -c 'import site; print(site.getusersitepackages())')" \
+        --quiet \
+        "${PIP_NEEDED[@]}"
     ok "Installed: ${PIP_NEEDED[*]}"
 else
-    skip "jinja2, pypdf"
+    names=()
+    for entry in "${PY_MODULES[@]}"; do names+=("${entry%%:*}"); done
+    skip "${names[*]}"
 fi
 
 # ============================================================
-# Phase 4: Shell setup
+# Phase: Shell setup
 # ============================================================
-phase 4 "Shell setup (PATH, aliases)"
+phase "Shell setup (PATH, aliases)"
 
 # Detect shell rc file
 if [[ -n "${ZSH_VERSION:-}" ]] || [[ "$SHELL" == */zsh ]]; then
@@ -129,25 +289,22 @@ fi
 export PATH="$HOME/.local/bin:$PATH"
 
 # ============================================================
-# Phase 5: CLI tool symlinks
+# Phase: CLI tool symlinks
 # ============================================================
-phase 5 "CLI tool symlinks (setup_symlinks.sh)"
+phase "CLI tool symlinks (setup_symlinks.sh)"
 
 if [[ -f "$SCRIPT_DIR/setup_symlinks.sh" ]]; then
-    bash "$SCRIPT_DIR/setup_symlinks.sh" 2>/dev/null
+    bash "$SCRIPT_DIR/setup_symlinks.sh"
     ok "Symlinks created (mathe-ueben, mathe-block, sync-ai-skills, ...)"
 else
     fail "setup_symlinks.sh not found in $SCRIPT_DIR"
-    ((ERRORS++))
+    ERRORS=$((ERRORS + 1))
 fi
 
 # ============================================================
-# Phase 6: aiconf (skills, shared libs, agents)
+# Phase: aiconf (skills, shared libs, agents)
 # ============================================================
-phase 6 "aiconf (Claude skills + shared libraries)"
-
-AICONF_GIT="$HOME/.ai-config.git"
-AICONF_REMOTE="git@github.com:pengguanya/ai-config.git"
+phase "aiconf (Claude skills + shared libraries)"
 
 if [[ -d "$AICONF_GIT" ]]; then
     skip "aiconf repo ($AICONF_GIT exists)"
@@ -174,12 +331,9 @@ else
 fi
 
 # ============================================================
-# Phase 7: luca_study (student data + exams)
+# Phase: luca_study (student data + exams)
 # ============================================================
-phase 7 "luca_study (student data, worksheets, exams)"
-
-STUDY_DIR="$HOME/work/luca_study"
-STUDY_REMOTE="git@github.com:pengguanya/luca_study.git"
+phase "luca_study (student data, worksheets, exams)"
 
 if [[ -d "$STUDY_DIR/.git" ]]; then
     skip "luca_study ($STUDY_DIR exists)"
@@ -191,49 +345,9 @@ else
 fi
 
 # ============================================================
-# Phase 8: Verification
+# Phase: Verification
 # ============================================================
-phase 8 "Verification"
-
-CHECKS=0
-PASSED=0
-
-verify() {
-    ((CHECKS++))
-    if eval "$1" &>/dev/null; then
-        ok "$2"
-        ((PASSED++))
-    else
-        fail "$2"
-        ((ERRORS++))
-    fi
-}
-
-verify "command -v uv"                               "uv"
-verify "command -v xelatex"                          "xelatex"
-verify "command -v pdfunite"                         "pdfunite"
-verify "command -v jq"                               "jq"
-verify "command -v python3"                          "python3"
-verify "python3 -c 'import jinja2'"                  "jinja2 (python)"
-verify "python3 -c 'from pypdf import PdfWriter'"    "pypdf (python)"
-verify "command -v claude"                           "Claude Code"
-verify "command -v mathe-ueben"                      "mathe-ueben (symlink)"
-verify "[[ -f $HOME/.claude/skills/deutsch-batch-training/SKILL.md ]]" \
-                                                     "deutsch-batch-training skill"
-verify "[[ -f $HOME/.claude/skills/math-batch-training/SKILL.md ]]" \
-                                                     "math-batch-training skill"
-verify "[[ -f $HOME/.claude/skills/shared/lib/config_base.sh ]]" \
-                                                     "shared library"
-verify "[[ -f $HOME/.claude/skills/shared/templates/render_base.py ]]" \
-                                                     "render engine"
-verify "[[ -f $HOME/.claude/skills/shared/templates/preamble.tex ]]" \
-                                                     "LaTeX preamble"
-verify "[[ -f $STUDY_DIR/config.json ]]"             "luca_study/config.json"
-verify "[[ -f $STUDY_DIR/deutsch/student_profile.json ]]" \
-                                                     "deutsch student profile"
-verify "[[ -f $STUDY_DIR/math/student_profile.json ]]" \
-                                                     "math student profile"
-verify "[[ -e $STUDY_DIR/Gymiprufung/.git ]]"        "Gymiprufung submodule"
+run_verification
 
 # ============================================================
 # Summary
@@ -261,3 +375,5 @@ echo "    Skills/agents:  aiconf  (pengguanya/ai-config)"
 echo "    CLI tools:      ~/tools/general  (pengguanya/tools_general)"
 echo "    Student data:   ~/work/luca_study  (pengguanya/luca_study)"
 echo "    Past exams:     ~/work/luca_study/Gymiprufung  (submodule)"
+
+exit $(( ERRORS > 0 ? 1 : 0 ))
