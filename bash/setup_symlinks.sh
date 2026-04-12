@@ -16,7 +16,7 @@
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 BIN_DIR="$HOME/.local/bin"
 REGISTRY_FILE="$SCRIPT_DIR/symlinks.txt"
 
@@ -341,7 +341,7 @@ cmd_check() {
         elif [[ ! -L "$link" ]]; then
             echo -e "${YELLOW}Missing symlink: $cmd${NC}"
             orphaned=$((orphaned + 1))
-        elif [[ "$(readlink -f "$link")" != "$target" ]]; then
+        elif [[ "$(readlink -f "$link")" != "$(readlink -f "$target")" ]]; then
             echo -e "${YELLOW}Mismatched symlink: $cmd${NC}"
             orphaned=$((orphaned + 1))
         fi

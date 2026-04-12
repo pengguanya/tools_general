@@ -5,4 +5,4 @@
 # Usage: makecmd <script> [name]
 #
 
-exec "$(dirname "$0")/setup_symlinks.sh" add "$@"
+exec "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/setup_symlinks.sh" add "$@"

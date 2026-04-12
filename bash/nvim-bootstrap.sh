@@ -162,7 +162,7 @@ do_install() {
   # Step 3: Install neovim binary
   echo -e "${BLUE}Step 3: Installing Neovim binary...${NC}"
   local script_dir
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  script_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
   if [[ -x "$script_dir/nvim-update.sh" ]]; then
     bash "$script_dir/nvim-update.sh" --install
   elif command -v nvim-update >/dev/null 2>&1; then

@@ -44,7 +44,7 @@ EOF
 find_script() {
   local name="$1"
   local script_dir
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  script_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
   if [[ -x "$script_dir/${name}.sh" ]]; then
     echo "$script_dir/${name}.sh"
