@@ -307,7 +307,13 @@ fi
 phase "aiconf (Claude skills + shared libraries)"
 
 if [[ -d "$AICONF_GIT" ]]; then
-    skip "aiconf repo ($AICONF_GIT exists)"
+    echo "  Pulling latest skills..."
+    if git --git-dir="$AICONF_GIT" --work-tree="$HOME" pull --rebase origin main 2>/dev/null; then
+        ok "aiconf updated"
+    else
+        fail "aiconf pull failed (conflicts or network issue)"
+        ERRORS=$((ERRORS + 1))
+    fi
 else
     echo "  Cloning aiconf (bare repo)..."
     git clone --bare "$AICONF_REMOTE" "$AICONF_GIT"
@@ -336,7 +342,14 @@ fi
 phase "luca_study (student data, worksheets, exams)"
 
 if [[ -d "$STUDY_DIR/.git" ]]; then
-    skip "luca_study ($STUDY_DIR exists)"
+    echo "  Pulling latest study content..."
+    if git -C "$STUDY_DIR" pull --rebase origin main 2>/dev/null; then
+        git -C "$STUDY_DIR" submodule update --init --recursive 2>/dev/null
+        ok "luca_study updated"
+    else
+        fail "luca_study pull failed (conflicts or network issue)"
+        ERRORS=$((ERRORS + 1))
+    fi
 else
     echo "  Cloning luca_study (with Gymiprufung submodule)..."
     mkdir -p "$HOME/work"
