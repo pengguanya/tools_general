@@ -7,6 +7,8 @@ aiconf:aiconf.sh
 audiodev:get_audio_dev.sh
 bitwarden-export:../python/bitwarden_smart_export.py
 cap2ctrl:cap2ctrl.sh
+clean-transcript:clean_transcript.sh
+clean-transcripts:clean_transcripts.sh
 confaudio:config_audio.sh
 dm-confedit:dmscripts/dm-confedit.sh
 enable_monitor:enable_monitor.sh
