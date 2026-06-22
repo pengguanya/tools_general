@@ -22,6 +22,7 @@ git-ft:../hexe/git-ft.py
 gtermfull:gterm_full.sh
 kill_chrome:kill_chrome.sh
 killtops:kill_top_process.sh
+leave-meet:leave_meet.sh
 list_chrome_process:list_chrome_process.sh
 localhost:localhost.sh
 makecmd:makecmd.sh
